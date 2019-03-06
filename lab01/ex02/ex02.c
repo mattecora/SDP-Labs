@@ -15,7 +15,7 @@ int int_comparator(const void *a, const void *b)
     return *((int*)a) - *((int*)b);
 }
 
-int handle_v1(int n1)
+void handle_v1(int n1)
 {
     int i, *v1;
     FILE *fp;
@@ -25,7 +25,7 @@ int handle_v1(int n1)
     if (v1 == NULL)
     {
         fprintf(stderr, "Error: could not allocate memory.\n");
-        return -1;
+        return;
     }
 
     /* Fill the array */
@@ -41,7 +41,7 @@ int handle_v1(int n1)
     {
         fprintf(stderr, "Error: could not open output file.\n");
         free(v1);
-        return -1;
+        return;
     }
     
     /* Write the text file */
@@ -55,7 +55,7 @@ int handle_v1(int n1)
     {
         fprintf(stderr, "Error: could not open output file.\n");
         free(v1);
-        return -1;
+        return;
     }
     
     /* Write the binary file */
@@ -64,10 +64,9 @@ int handle_v1(int n1)
     
     /* Free the array */
     free(v1);
-    return 1;
 }
 
-int handle_v2(int n2)
+void handle_v2(int n2)
 {
     int i, *v2;
     FILE *fp;
@@ -77,7 +76,7 @@ int handle_v2(int n2)
     if (v2 == NULL)
     {
         fprintf(stderr, "Error: could not allocate memory.\n");
-        return -1;
+        return;
     }
 
     /* Fill the array */
@@ -93,7 +92,7 @@ int handle_v2(int n2)
     {
         fprintf(stderr, "Error: could not open output file.\n");
         free(v2);
-        return -1;
+        return;
     }
 
     /* Write the text file */
@@ -107,7 +106,7 @@ int handle_v2(int n2)
     {
         fprintf(stderr, "Error: could not open output file.\n");
         free(v2);
-        return -1;
+        return;
     }
     
     /* Write the binary file */
@@ -116,7 +115,6 @@ int handle_v2(int n2)
     
     /* Free the array */
     free(v2);
-    return 2;
 }
 
 int main(int argc, char const *argv[])
@@ -142,12 +140,14 @@ int main(int argc, char const *argv[])
     if ((p1 = fork()) == 0)
     {
         /* Fork and do actions on v1 */
-        return handle_v1(n1);
+        handle_v1(n1);
+        return 1;
     }
     else if ((p2 = fork()) == 0)
     {
         /* Fork and do actions on v2 */
-        return handle_v2(n2);
+        handle_v2(n2);
+        return 2;
     }
     
     /* Wait for the first process */
