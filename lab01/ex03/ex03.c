@@ -10,7 +10,6 @@
 #include <pthread.h>
 
 int next, this, last;
-FILE *fp;
 
 void *process_this(void *data)
 {
@@ -29,6 +28,7 @@ void *write_last(void *data)
 int main(int argc, char const *argv[])
 {
     int i;
+    FILE *fp;
     pthread_t tid_p, tid_o;
 
     /* Check input arguments */
@@ -47,40 +47,35 @@ int main(int argc, char const *argv[])
     }
 
     /* Loop until the end of the file */
-    for (i = 0; ; i++)
+    for (i = 0; last != EOF; i++)
     {
         /* Create the processing thread */
-        if (i >= 1 && this != EOF)
+        if (i >= 1)
             pthread_create(&tid_p, NULL, process_this, NULL);
         
         /* Create the output thread */
-        if (i >= 2 && last != EOF)
+        if (i >= 2)
             pthread_create(&tid_o, NULL, write_last, NULL);
 
         /* Read the next character */
-        if (next != EOF)
-            next = fgetc(fp);
+        next = fgetc(fp);
         
         /* Join the processing thread */
-        if (i >= 1 && this != EOF)
+        if (i >= 1)
             pthread_join(tid_p, NULL);
         
         /* Join the output thread */
-        if (i >= 2 && last != EOF)
+        if (i >= 2)
             pthread_join(tid_o, NULL);
         
         /* Shift the variables */
         last = this;
         this = next;
-
-        /* Break the loop if last is EOF */
-        if (last == EOF)
-            break;
     }
 
     /* Close the input file */
     fclose(fp);
 
-    printf("\nProgram finished: %d characters processed.\n", i-1);
+    printf("\nProgram finished: %d characters processed.\n", i-2);
     return 0;
 }
