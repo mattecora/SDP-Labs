@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <wait.h>
 
-int int_comparator(const void* a, const void* b)
+int int_comparator(const void *a, const void *b)
 {
     return *((int*)a) - *((int*)b);
 }
@@ -30,7 +30,7 @@ int handle_v1(int n1)
 
     /* Fill the array */
     for (i = 0; i < n1; i++)
-        v1[i] = rand() % 91 + 10;
+        v1[i] = 2 * (rand() % 46) + 10;
     
     /* Sort the array */
     qsort(v1, n1, sizeof(int), int_comparator);
@@ -50,7 +50,7 @@ int handle_v1(int n1)
     fclose(fp);
     
     /* Open the binary file */
-    fp = fopen("fv1.bin", "wb");
+    fp = fopen("fv1.b", "wb");
     if (fp == NULL)
     {
         fprintf(stderr, "Error: could not open output file.\n");
@@ -82,7 +82,7 @@ int handle_v2(int n2)
 
     /* Fill the array */
     for (i = 0; i < n2; i++)
-        v2[i] = rand() % 81 + 20;
+        v2[i] = 2 * (rand() % 41) + 21;
 
     /* Sort the array */
     qsort(v2, n2, sizeof(int), int_comparator);
@@ -102,7 +102,7 @@ int handle_v2(int n2)
     fclose(fp);
 
     /* Open the binary file */
-    fp = fopen("fv2.bin", "wb");
+    fp = fopen("fv2.b", "wb");
     if (fp == NULL)
     {
         fprintf(stderr, "Error: could not open output file.\n");
