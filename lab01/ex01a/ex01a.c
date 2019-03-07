@@ -7,116 +7,76 @@
 #include <stdlib.h>
 #include <time.h>
 
+int limits[2][2] = {10, 100, 21, 101};
+char *filenames[2][2] = {"fv1.txt", "fv1.b", "fv2.txt", "fv2.b"};
+
 int int_comparator(const void *a, const void *b)
 {
+    /* Cast, dereference and subtract */
     return *((int*)a) - *((int*)b);
 }
 
-void handle_v1(int n1)
+int rand_interval(int min, int max, int interval)
 {
-    int i, *v1;
-    FILE *fp;
-    
-    /* Allocate the array */
-    v1 = malloc(n1 * sizeof(int));
-    if (v1 == NULL)
-    {
-        fprintf(stderr, "Error: could not allocate memory.\n");
-        return;
-    }
-
-    /* Fill the array */
-    for (i = 0; i < n1; i++)
-        v1[i] = 2 * (rand() % 46) + 10;
-    
-    /* Sort the array */
-    qsort(v1, n1, sizeof(int), int_comparator);
-
-    /* Open the text file */
-    fp = fopen("fv1.txt", "w");
-    if (fp == NULL)
-    {
-        fprintf(stderr, "Error: could not open output file.\n");
-        free(v1);
-        return;
-    }
-    
-    /* Write the text file */
-    for (i = 0; i < n1; i++)
-        fprintf(fp, "%d ", v1[i]);
-    fclose(fp);
-    
-    /* Open the binary file */
-    fp = fopen("fv1.b", "wb");
-    if (fp == NULL)
-    {
-        fprintf(stderr, "Error: could not open output file.\n");
-        free(v1);
-        return;
-    }
-    
-    /* Write the binary file */
-    fwrite(v1, sizeof(int), n1, fp);
-    fclose(fp);
-    
-    /* Free the array */
-    free(v1);
+    /* Scale the rand interval into the given one */
+    return interval * (rand() % ((max - min) / interval + 1)) + min;
 }
 
-void handle_v2(int n2)
+void handle_vector(int num, int *vec, int len)
 {
-    int i, *v2;
+    int i;
     FILE *fp;
-
+    
     /* Allocate the array */
-    v2 = malloc(n2 * sizeof(int));
-    if (v2 == NULL)
+    vec = malloc(len * sizeof(int));
+    if (vec == NULL)
     {
         fprintf(stderr, "Error: could not allocate memory.\n");
         return;
     }
 
     /* Fill the array */
-    for (i = 0; i < n2; i++)
-        v2[i] = 2 * (rand() % 41) + 21;
-
-    /* Sort the array */
-    qsort(v2, n2, sizeof(int), int_comparator);
+    for (i = 0; i < len; i++)
+        vec[i] = rand_interval(limits[num][0], limits[num][1], 2);
     
+    /* Sort the array */
+    qsort(vec, len, sizeof(int), int_comparator);
+
     /* Open the text file */
-    fp = fopen("fv2.txt", "w");
+    fp = fopen(filenames[num][0], "w");
     if (fp == NULL)
     {
         fprintf(stderr, "Error: could not open output file.\n");
-        free(v2);
+        free(vec);
         return;
     }
-
+    
     /* Write the text file */
-    for (i = 0; i < n2; i++)
-        fprintf(fp, "%d ", v2[i]);
+    for (i = 0; i < len; i++)
+        fprintf(fp, "%d ", vec[i]);
     fclose(fp);
-
+    
     /* Open the binary file */
-    fp = fopen("fv2.b", "wb");
+    fp = fopen(filenames[num][1], "wb");
     if (fp == NULL)
     {
         fprintf(stderr, "Error: could not open output file.\n");
-        free(v2);
+        free(vec);
         return;
     }
     
     /* Write the binary file */
-    fwrite(v2, sizeof(int), n2, fp);
+    fwrite(vec, sizeof(int), len, fp);
     fclose(fp);
     
     /* Free the array */
-    free(v2);
+    free(vec);
 }
 
 int main(int argc, char const *argv[])
 {
     int i, n1, n2;
+    int *v1, *v2;
     
     /* Initialize random seed */
     srand(time(0));
@@ -132,9 +92,12 @@ int main(int argc, char const *argv[])
     n1 = atoi(argv[1]);
     n2 = atoi(argv[2]);
 
-    /* Do things */
-    handle_v1(n1);
-    handle_v2(n2);
+    /* Loop twice */
+    for (i = 0; i < 2; i++)
+    {
+        /* Process a vector */
+        handle_vector(i, i == 0 ? v1 : v2, i == 0 ? n1 : n2);
+    }
 
     return 0;
 }
