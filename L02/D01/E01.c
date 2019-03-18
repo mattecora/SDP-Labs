@@ -37,6 +37,11 @@ void *thread_runner(void *data)
 
     /* Open input file */
     fp = fopen(filename, "rb");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Cannot open input file.\n");
+        exit(-1);
+    }
     
     /* Read next value */
     fread(&next, sizeof(int), 1, fp);
@@ -77,6 +82,7 @@ void *thread_runner(void *data)
 
     /* Signal on sem_server */
     sem_post(sem_server);
+
     return NULL;
 }
 
@@ -90,6 +96,12 @@ int main(int argc, char const *argv[])
     sem_server = malloc(sizeof(sem_t));
     sem_client = malloc(sizeof(sem_t));
     sem_print = malloc(sizeof(sem_t));
+
+    if (sem_server == NULL || sem_client == NULL || sem_print == NULL)
+    {
+        fprintf(stderr, "Cannot allocate memory.\n");
+        return -1;
+    }
 
     sem_init(sem_server, 0, 0);
     sem_init(sem_client, 0, 0);

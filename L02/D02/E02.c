@@ -124,6 +124,13 @@ int main(int argc, char const *argv[])
 
     /* Initialize semaphore */
     s = malloc(sizeof(sem_t));
+
+    if (s == NULL)
+    {
+        fprintf(stderr, "Cannot allocate memory.\n");
+        return -1;
+    }
+
     sem_init(s, 0, 0);
 
     /* Create threads */
