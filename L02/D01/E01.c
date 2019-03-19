@@ -46,7 +46,8 @@ void *thread_runner(void *data)
     /* Read next value */
     fread(&next, sizeof(int), 1, fp);
 
-    while (1)
+    /* Loop until EOF */
+    while (!feof(fp))
     {
         /* Wait on sem_client */
         sem_wait(sem_client);
@@ -57,21 +58,18 @@ void *thread_runner(void *data)
         /* Signal on sem_server */
         sem_post(sem_server);
 
-        /* Read next value */
-        fread(&next, sizeof(int), 1, fp);
-
         /* Wait on sem_print */
         sem_wait(sem_print);
 
         /* Print the global variable after processing */
         printf("Thread #%d : %d\n", id, g);
 
-        /* Break if end of file is reached */
-        if (feof(fp))
-            break;
-        
-        /* Signal on sem_server */
-        sem_post(sem_server);
+        /* Read next value */
+        if (fread(&next, sizeof(int), 1, fp))
+        {
+            /* Signal on sem_server */
+            sem_post(sem_server);
+        }
     }
 
     /* Close input file */
@@ -103,9 +101,13 @@ int main(int argc, char const *argv[])
         return -1;
     }
 
-    sem_init(sem_server, 0, 0);
-    sem_init(sem_client, 0, 0);
-    sem_init(sem_print, 0, 0);
+    if (sem_init(sem_server, 0, 0) == -1 || 
+        sem_init(sem_client, 0, 0) == -1 || 
+        sem_init(sem_print, 0, 0) == -1)
+    {
+        fprintf(stderr, "Cannot instantiate semaphores.\n");
+        return -1;
+    }
 
     /* Initialize thread data */
     thread_data[0].id = 0;
@@ -115,7 +117,13 @@ int main(int argc, char const *argv[])
 
     /* Create threads */
     for (i = 0; i < 2; i++)
-        pthread_create(&(tids[i]), NULL, thread_runner, (void*) &(thread_data[i]));
+    {
+        if (pthread_create(&(tids[i]), NULL, thread_runner, (void*) &(thread_data[i])) != 0)
+        {
+            fprintf(stderr, "Cannot create threads.\n");
+            return -1;
+        }
+    }
 
     /* Loop until threads are running */
     while (thread_complete[0] == 0 || thread_complete[1] == 0)

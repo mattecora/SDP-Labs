@@ -1,16 +1,22 @@
 /******************************************************************************
  * Lab 02 - Exercise 2                                                        *
  * Matteo Corain - System and device programming - A.Y. 2018-19               *
+ * -------------------------------------------------------------------------- *
+ * This solution uses POSIX timers to generate alarms with nanoseconds granu- *
+ * larity; please compile using flag -lrt                                     *
  ******************************************************************************/
+
+/* Necessary for timer functions */
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
-#include <unistd.h>
-#include <signal.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
+#include <unistd.h>
 
 #define EXIT_NORM 0
 #define EXIT_TOUT 1
@@ -35,20 +41,37 @@ void sig_handler(int signal)
 
 int wait_with_timeout(sem_t *s, int tmax)
 {
+    timer_t timer;
+    struct sigevent se;
+    struct itimerspec its;
+
     /* Set alarm handler */
     signal(SIGALRM, sig_handler);
 
-    /* Start alarm timer */
-    alarm(tmax / 1000);
+    /* Set timer to produce a SIGALRM on timeout */
+    se.sigev_notify = SIGEV_SIGNAL;
+    se.sigev_signo = SIGALRM;
+
+    /* Create timer */
+    timer_create(CLOCK_REALTIME, &se, &timer);
+
+    /* Set timer to tmax without repetition */
+    its.it_value.tv_sec = tmax / 1000;
+    its.it_value.tv_nsec = (tmax - its.it_value.tv_sec * 1000) * 1000000;
+    its.it_interval.tv_sec = 0;
+    its.it_interval.tv_nsec = 0;
+
+    /* Start timer */
+    timer_settime(timer, 0, &its, NULL);
 
     /* Set return value to normal */
     ret_val = EXIT_NORM;
 
     /* Wait on the semaphore */
-    sem_wait(s);
+    while (sem_wait(s) == -1);
 
-    /* Reset the alarm timer */
-    alarm(0);
+    /* Destroy timer */
+    timer_delete(timer);
 
     /* Restore default handler */
     signal(SIGALRM, SIG_DFL);
@@ -65,8 +88,8 @@ void *thread_runner_1(void *data)
     sleep_time = rand() % 5 + 1;
 
     /* Initialize timespec */
-    sleep_timespec.tv_sec = sleep_time / 1000;
-    sleep_timespec.tv_nsec = (sleep_time - sleep_timespec.tv_sec * 1000) * 1000000;
+    sleep_timespec.tv_sec = 0;
+    sleep_timespec.tv_nsec = sleep_time * 1000000;
 
     /* Sleep with the given timespec */
     nanosleep(&sleep_timespec, NULL);
@@ -95,7 +118,7 @@ void *thread_runner_2(void *data)
     struct timespec sleep_timespec;
 
     /* Compute random sleep time */
-    sleep_time = rand() % 9000 + 1000;
+    sleep_time = rand() % 9001 + 1000;
 
     /* Initialize timespec */
     sleep_timespec.tv_sec = sleep_time / 1000;
@@ -131,11 +154,19 @@ int main(int argc, char const *argv[])
         return -1;
     }
 
-    sem_init(s, 0, 0);
+    if (sem_init(s, 0, 0) == -1)
+    {
+        fprintf(stderr, "Cannot instantiate semaphores.\n");
+        return -1;
+    }
 
     /* Create threads */
-    pthread_create(&tid1, NULL, thread_runner_1, &tmax);
-    pthread_create(&tid2, NULL, thread_runner_2, NULL);
+    if (pthread_create(&tid1, NULL, thread_runner_1, &tmax) != 0 ||
+        pthread_create(&tid2, NULL, thread_runner_2, NULL))
+    {
+        fprintf(stderr, "Cannot create threads.\n");
+        return -1;
+    }
 
     /* Join threads */
     pthread_join(tid1, NULL);
