@@ -4,7 +4,7 @@
  ******************************************************************************/
 
 /* Necessary for clock_gettime */
-#define _POSIX_C_SOURCE 200809L
+#define _POSIX_C_SOURCE 199309L
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,6 +96,13 @@ int main(int argc, char const *argv[])
 {
     int tmax;
     pthread_t tid1, tid2;
+
+    /* Check number of parameters */
+    if (argc < 2)
+    {
+        fprintf(stderr, "Please specify an input parameter.\n");
+        return -1;
+    }
 
     /* Read tmax from command line */
     tmax = atoi(argv[1]);
