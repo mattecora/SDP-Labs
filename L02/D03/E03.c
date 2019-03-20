@@ -34,7 +34,12 @@ void *thread_runner_1(void *data)
     sleep_timespec.tv_nsec = sleep_time * 1000000;
     
     /* Initialize wait timespec (current time + displacement) */
-    clock_gettime(CLOCK_REALTIME, &wait_timespec);
+    if (clock_gettime(CLOCK_REALTIME, &wait_timespec) == -1)
+    {
+        fprintf(stderr, "Cannot get current time.\n");
+        exit(-1);
+    }
+
     wait_timespec.tv_sec += wait_time / 1000;
     wait_timespec.tv_nsec += (wait_time - wait_time / 1000 * 1000) * 1000000;
     

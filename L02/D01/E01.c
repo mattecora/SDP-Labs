@@ -50,7 +50,7 @@ void *thread_runner(void *data)
     while (!feof(fp))
     {
         /* Wait on sem_client */
-        sem_wait(sem_client);
+        while (sem_wait(sem_client) == -1);
 
         /* Copy next value on the global variable */
         g = next;
@@ -59,7 +59,7 @@ void *thread_runner(void *data)
         sem_post(sem_server);
 
         /* Wait on sem_print */
-        sem_wait(sem_print);
+        while (sem_wait(sem_print) == -1);
 
         /* Print the global variable after processing */
         printf("Thread #%d : %d\n", id, g);
@@ -132,7 +132,7 @@ int main(int argc, char const *argv[])
         sem_post(sem_client);
         
         /* Wait on sem_server */
-        sem_wait(sem_server);
+        while (sem_wait(sem_server) == -1);
         
         /* Process global variable */
         g = g * 3;
@@ -144,7 +144,7 @@ int main(int argc, char const *argv[])
         sem_post(sem_print);
 
         /* Wait on sem_server */
-        sem_wait(sem_server);
+        while (sem_wait(sem_server) == -1);
     }
 
     printf("Total requests : %d\n", total_reqs);

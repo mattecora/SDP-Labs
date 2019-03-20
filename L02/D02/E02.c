@@ -53,7 +53,11 @@ int wait_with_timeout(sem_t *s, int tmax)
     se.sigev_signo = SIGALRM;
 
     /* Create timer */
-    timer_create(CLOCK_REALTIME, &se, &timer);
+    if (timer_create(CLOCK_REALTIME, &se, &timer) == -1)
+    {
+        fprintf(stderr, "Cannot create timer.\n");
+        exit(-1);
+    }
 
     /* Set timer to tmax without repetition */
     its.it_value.tv_sec = tmax / 1000;
@@ -62,7 +66,11 @@ int wait_with_timeout(sem_t *s, int tmax)
     its.it_interval.tv_nsec = 0;
 
     /* Start timer */
-    timer_settime(timer, 0, &its, NULL);
+    if (timer_settime(timer, 0, &its, NULL) == -1)
+    {
+        fprintf(stderr, "Cannot start timer.\n");
+        exit(-1);
+    }
 
     /* Set return value to normal */
     ret_val = EXIT_NORM;
