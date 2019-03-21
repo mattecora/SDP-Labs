@@ -4,7 +4,7 @@
  ******************************************************************************/
 
 /* Necessary for clock_gettime */
-#define _POSIX_C_SOURCE 199309L
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,13 +15,21 @@
 #include <semaphore.h>
 #include <unistd.h>
 
-/* Global semaphore */
-sem_t *s;
+/* Definition of the thread data structure */
+struct thread_data_s
+{
+    int tmax;
+    sem_t *s;
+};
 
 void *thread_runner_1(void *data)
 {
     int sleep_time, wait_time;
     struct timespec sleep_timespec, wait_timespec;
+
+    /* Retrieve thread data */
+    sem_t *s = ((struct thread_data_s *) data)->s;
+    int tmax = ((struct thread_data_s *) data)->tmax;
 
     /* Compute random sleep time */
     sleep_time = rand() % 5 + 1;
@@ -75,6 +83,9 @@ void *thread_runner_2(void *data)
     int sleep_time;
     struct timespec sleep_timespec;
 
+    /* Retrieve thread data */
+    sem_t *s = ((struct thread_data_s *) data)->s;
+
     /* Compute random sleep time */
     sleep_time = rand() % 9001 + 1000;
 
@@ -95,7 +106,9 @@ void *thread_runner_2(void *data)
 int main(int argc, char const *argv[])
 {
     int tmax;
+    sem_t *s;
     pthread_t tid1, tid2;
+    struct thread_data_s thread_data;
 
     /* Check number of parameters */
     if (argc < 2)
@@ -125,9 +138,13 @@ int main(int argc, char const *argv[])
         return -1;
     }
 
+    /* Initialize thread data */
+    thread_data.s = s;
+    thread_data.tmax = tmax;
+
     /* Create threads */
-    if (pthread_create(&tid1, NULL, thread_runner_1, &tmax) != 0 || 
-        pthread_create(&tid2, NULL, thread_runner_2, NULL))
+    if (pthread_create(&tid1, NULL, thread_runner_1, &thread_data) != 0 ||
+        pthread_create(&tid2, NULL, thread_runner_2, &thread_data))
     {
         fprintf(stderr, "Cannot create threads.\n");
         return -1;

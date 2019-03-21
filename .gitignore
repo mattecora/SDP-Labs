@@ -2,4 +2,5 @@
 !.gitignore
 !*/
 !*.c
+!*.h
 !*.pdf

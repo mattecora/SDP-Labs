@@ -6,9 +6,6 @@
  * larity; please compile using flag -lrt                                     *
  ******************************************************************************/
 
-/* Necessary for timer functions */
-#define _POSIX_C_SOURCE 199309L
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -18,79 +15,23 @@
 #include <signal.h>
 #include <unistd.h>
 
-#define EXIT_NORM 0
-#define EXIT_TOUT 1
+#include "wait_with_timeout.h"
 
-/* Global semaphore */
-sem_t *s;
-
-/* Return value for wait_with_timeout */
-int ret_val;
-
-void sig_handler(int signal)
+/* Definition of the thread data structure */
+struct thread_data_s
 {
-    if (signal == SIGALRM)
-    {
-        /* Change return value to timeout */
-        ret_val = EXIT_TOUT;
-
-        /* Signal on the semaphore */
-        sem_post(s);
-    }
-}
-
-int wait_with_timeout(sem_t *s, int tmax)
-{
-    timer_t timer;
-    struct sigevent se;
-    struct itimerspec its;
-
-    /* Set alarm handler */
-    signal(SIGALRM, sig_handler);
-
-    /* Set timer to produce a SIGALRM on timeout */
-    se.sigev_notify = SIGEV_SIGNAL;
-    se.sigev_signo = SIGALRM;
-
-    /* Create timer */
-    if (timer_create(CLOCK_REALTIME, &se, &timer) == -1)
-    {
-        fprintf(stderr, "Cannot create timer.\n");
-        exit(-1);
-    }
-
-    /* Set timer to tmax without repetition */
-    its.it_value.tv_sec = tmax / 1000;
-    its.it_value.tv_nsec = (tmax - its.it_value.tv_sec * 1000) * 1000000;
-    its.it_interval.tv_sec = 0;
-    its.it_interval.tv_nsec = 0;
-
-    /* Start timer */
-    if (timer_settime(timer, 0, &its, NULL) == -1)
-    {
-        fprintf(stderr, "Cannot start timer.\n");
-        exit(-1);
-    }
-
-    /* Set return value to normal */
-    ret_val = EXIT_NORM;
-
-    /* Wait on the semaphore */
-    while (sem_wait(s) == -1);
-
-    /* Destroy timer */
-    timer_delete(timer);
-
-    /* Restore default handler */
-    signal(SIGALRM, SIG_DFL);
-
-    return ret_val;
-}
+    int tmax;
+    sem_t *s;
+};
 
 void *thread_runner_1(void *data)
 {
     int sleep_time;
     struct timespec sleep_timespec;
+
+    /* Retrieve thread data */
+    sem_t *s = ((struct thread_data_s *) data)->s;
+    int tmax = ((struct thread_data_s *) data)->tmax;
 
     /* Compute random sleep time */
     sleep_time = rand() % 5 + 1;
@@ -104,7 +45,7 @@ void *thread_runner_1(void *data)
 
     /* Wait on the semaphore with timeout */
     printf("Waiting on semaphore after %d milliseconds.\n", sleep_time);
-    switch (wait_with_timeout(s, *((int*) data)))
+    switch (wait_with_timeout(s, tmax))
     {
         /* Normal exit */
         case EXIT_NORM:
@@ -124,6 +65,9 @@ void *thread_runner_2(void *data)
 {
     int sleep_time;
     struct timespec sleep_timespec;
+
+    /* Retrieve thread data */
+    sem_t *s = ((struct thread_data_s *) data)->s;
 
     /* Compute random sleep time */
     sleep_time = rand() % 9001 + 1000;
@@ -145,7 +89,9 @@ void *thread_runner_2(void *data)
 int main(int argc, char const *argv[])
 {
     int tmax;
+    sem_t *s;
     pthread_t tid1, tid2;
+    struct thread_data_s thread_data;
 
     /* Check number of parameters */
     if (argc < 2)
@@ -175,9 +121,13 @@ int main(int argc, char const *argv[])
         return -1;
     }
 
+    /* Initialize thread data */
+    thread_data.s = s;
+    thread_data.tmax = tmax;
+
     /* Create threads */
-    if (pthread_create(&tid1, NULL, thread_runner_1, &tmax) != 0 ||
-        pthread_create(&tid2, NULL, thread_runner_2, NULL))
+    if (pthread_create(&tid1, NULL, thread_runner_1, &thread_data) != 0 ||
+        pthread_create(&tid2, NULL, thread_runner_2, &thread_data))
     {
         fprintf(stderr, "Cannot create threads.\n");
         return -1;
