@@ -17,7 +17,7 @@
 int buffer[BUF_LEN];
 
 /* Global semaphores */
-cond_sem_t *empty, *full;
+csem_t *empty, *full;
 
 void *producer(void *data)
 {
@@ -26,7 +26,7 @@ void *producer(void *data)
     for (i = 0; i < DATA_LEN; i++)
     {
         /* Wait on empty */
-        cond_sem_wait(empty);
+        csem_wait(empty);
 
         /* Produce a value */
         buffer[wpos] = rand() % DATA_LEN;
@@ -35,7 +35,7 @@ void *producer(void *data)
         wpos = (wpos + 1) % BUF_LEN;
 
         /* Post on full */
-        cond_sem_post(full);
+        csem_post(full);
     }
 }
 
@@ -46,7 +46,7 @@ void *consumer(void *data)
     for (i = 0; i < DATA_LEN; i++)
     {
         /* Wait on full */
-        cond_sem_wait(full);
+        csem_wait(full);
 
         /* Consume a value */
         printf("%4d ", buffer[rpos]);
@@ -55,7 +55,7 @@ void *consumer(void *data)
         rpos = (rpos + 1) % BUF_LEN;
 
         /* Post on empty */
-        cond_sem_post(empty);
+        csem_post(empty);
     }
 }
 
@@ -68,11 +68,11 @@ int main(int argc, char const *argv[])
     srand(time(0));
     
     /* Allocate and initialize semaphores */
-    empty = malloc(sizeof(cond_sem_t));
-    full = malloc(sizeof(cond_sem_t));
+    empty = malloc(sizeof(csem_t));
+    full = malloc(sizeof(csem_t));
 
-    cond_sem_init(empty, BUF_LEN);
-    cond_sem_init(full, 0);
+    csem_init(empty, BUF_LEN);
+    csem_init(full, 0);
 
     /* Create and join producer and consumer */
     pthread_create(&prod, NULL, producer, NULL);
@@ -84,8 +84,8 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     /* Destroy and free semaphores */
-    cond_sem_destroy(full);
-    cond_sem_destroy(empty);
+    csem_destroy(full);
+    csem_destroy(empty);
 
     free(full);
     free(empty);

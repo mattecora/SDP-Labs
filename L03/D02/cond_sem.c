@@ -1,33 +1,49 @@
 #include "cond_sem.h"
 
-void cond_sem_init(cond_sem_t *cond_sem, int initial_val)
+void csem_init(csem_t *csem, int initial_val)
 {
-    cond_sem->value = initial_val;
-    pthread_mutex_init(&cond_sem->lock, NULL);
-    pthread_cond_init(&cond_sem->cond, NULL);
+    /* Set the initial value */
+    csem->value = initial_val;
+
+    /* Initialize mutex and condition */
+    pthread_mutex_init(&csem->lock, NULL);
+    pthread_cond_init(&csem->cond, NULL);
 }
 
-void cond_sem_wait(cond_sem_t *cond_sem)
+void csem_wait(csem_t *csem)
 {
-    pthread_mutex_lock(&cond_sem->lock);
+    /* Lock the mutex */
+    pthread_mutex_lock(&csem->lock);
     
-    while (cond_sem->value == 0)
-        pthread_cond_wait(&cond_sem->cond, &cond_sem->lock);
+    /* Wait on condition until value is 0 */
+    while (csem->value == 0)
+        pthread_cond_wait(&csem->cond, &csem->lock);
     
-    cond_sem->value--;
-    pthread_mutex_unlock(&cond_sem->lock);
+    /* Decrement value */
+    csem->value--;
+
+    /* Unlock the mutex */
+    pthread_mutex_unlock(&csem->lock);
 }
 
-void cond_sem_post(cond_sem_t *cond_sem)
+void csem_post(csem_t *csem)
 {
-    pthread_mutex_lock(&cond_sem->lock);
-    cond_sem->value++;
-    pthread_cond_signal(&cond_sem->cond);
-    pthread_mutex_unlock(&cond_sem->lock);
+    /* Lock the mutex */
+    pthread_mutex_lock(&csem->lock);
+
+    /* Increment value */
+    csem->value++;
+
+    /* Signal on condition */
+    pthread_cond_signal(&csem->cond);
+
+    /* Unlock the mutex */
+    pthread_mutex_unlock(&csem->lock);
 }
 
-void cond_sem_destroy(cond_sem_t *cond_sem)
+void csem_destroy(csem_t *csem)
 {
-    pthread_mutex_destroy(&cond_sem->lock);
-    pthread_cond_destroy(&cond_sem->cond);
+    /* Destroy mutex and condition */
+    pthread_mutex_destroy(&csem->lock);
+    pthread_cond_destroy(&csem->cond);
 }
