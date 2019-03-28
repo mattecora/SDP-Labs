@@ -13,10 +13,22 @@
 
 #define SIZE 100
 
-struct thread_data_s
+#define QUICK_REC 0
+#define QUICK_THR 1
+
+/* Global size threshold */
+int size;
+
+/* Quicksort data structure */
+struct qs_data_s
 {
     int *v, left, right;
 };
+
+/* Function prototypes */
+void swap(int v[], int i, int j);
+void *quicksort(void *data);
+int quicksort_wrapper(struct qs_data_s *data, pthread_t *tid);
 
 void swap(int v[], int i, int j)
 {
@@ -30,15 +42,13 @@ void swap(int v[], int i, int j)
 void *quicksort(void *data)
 {
     int i, j, x, tmp;
-    struct thread_data_s data_left, data_right;
+    struct qs_data_s data_left, data_right;
     pthread_t tid_left, tid_right;
 
     /* Retrieve data from the structure */
-    int *v = ((struct thread_data_s*) data)->v;
-    int left = ((struct thread_data_s*) data)->left;
-    int right = ((struct thread_data_s*) data)->right;
-
-    printf("Thread created, sorting from %d to %d.\n", left, right);
+    int *v = ((struct qs_data_s*) data)->v;
+    int left = ((struct qs_data_s*) data)->left;
+    int right = ((struct qs_data_s*) data)->right;
 
     /* Standard quicksort algorithm */
     if (left >= right)
@@ -57,33 +67,59 @@ void *quicksort(void *data)
             swap(v, i, j);
     }
 
-    /* Prepare the data structure for the left thread */
+    /* Prepare the data structure for the left part */
     data_left.v = v;
     data_left.left = left;
     data_left.right = j;
     
-    /* Prepare the data structure for the right thread */
+    /* Prepare the data structure for the right part */
     data_right.v = v;
     data_right.left = j+1;
     data_right.right = right;
 
-    /* Create and join left and right threads */
-    pthread_create(&tid_left, NULL, quicksort, &data_left);
-    pthread_create(&tid_right, NULL, quicksort, &data_right);
-    
-    pthread_join(tid_left, NULL);
-    pthread_join(tid_right, NULL);
+    /* Call on the left part */
+    if (quicksort_wrapper(&data_left, &tid_left) == QUICK_THR)
+        pthread_join(tid_left, NULL);
+
+    /* Call on the right part */
+    if (quicksort_wrapper(&data_right, &tid_right) == QUICK_THR)
+        pthread_join(tid_right, NULL);
+}
+
+int quicksort_wrapper(struct qs_data_s *data, pthread_t *tid)
+{
+    if (data->right - data->left < size)
+    {
+        /* Use recursion */
+        printf("R: %d - %d (len: %d)\n", data->left, data->right, data->right - data->left);
+        quicksort(data);
+        return QUICK_REC;
+    }
+    else
+    {
+        /* Use threads */
+        printf("T: %d - %d (len: %d)\n", data->left, data->right, data->right - data->left);
+        pthread_create(tid, NULL, quicksort, data);
+        return QUICK_THR;
+    }
 }
 
 int main(int argc, char const *argv[])
 {
-    int fd;
-    struct thread_data_s data;
+    int i, fd;
+    struct qs_data_s data;
     pthread_t tid;
 
-    /* Open file in read-write mode */
-    fd = open("data.b", O_RDWR);
+    /* Check command line and set size threshold */
+    if (argc < 3)
+    {
+        fprintf(stderr, "Not enough input arguments.\n");
+        return -1;
+    }
+    size = atoi(argv[1]);
 
+    /* Open file in read-write mode */
+    fd = open(argv[2], O_RDWR);
     if (fd < 0)
     {
         fprintf(stderr, "Cannot open input file.\n");
@@ -91,8 +127,7 @@ int main(int argc, char const *argv[])
     }
 
     /* Map the file to main memory */
-    int *v = mmap(NULL, SIZE * sizeof(int), PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-
+    int *v = mmap(NULL, SIZE * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (v == MAP_FAILED)
     {
         fprintf(stderr, "Cannot map input file to memory.\n");
@@ -104,11 +139,15 @@ int main(int argc, char const *argv[])
     data.left = 0;
     data.right = SIZE;
 
-    /* Create and join the first thread */
-    pthread_create(&tid, NULL, quicksort, &data);
-    pthread_join(tid, NULL);
+    /* Call quicksort on the entire array */
+    if (quicksort_wrapper(&data, &tid) == QUICK_THR)
+        pthread_join(tid, NULL);
     
-    printf("Sorting finished.\n");
+    /* Print sorted vector */
+    printf("Sorting finished. Sorted vector:\n");
+    for (i = 0; i < SIZE; i++)
+        printf("%d ", v[i]);
+    printf("\n");
     
     /* Unmap and close the file */
     munmap(v, SIZE * sizeof(int));
