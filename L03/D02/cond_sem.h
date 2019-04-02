@@ -3,8 +3,6 @@
 
 #include <pthread.h>
 
-#define BUF_LEN 20
-
 /* Semaphore implemented via conditions and mutexes */
 struct csem_s
 {

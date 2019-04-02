@@ -31,11 +31,11 @@ void *producer(void *data)
         /* Produce a value */
         buffer[wpos] = rand() % DATA_LEN;
 
-        /* Update wpos */
-        wpos = (wpos + 1) % BUF_LEN;
-
         /* Post on full */
         csem_post(full);
+
+        /* Update wpos */
+        wpos = (wpos + 1) % BUF_LEN;
     }
 }
 
@@ -51,11 +51,11 @@ void *consumer(void *data)
         /* Consume a value */
         printf("%4d ", buffer[rpos]);
 
-        /* Update rpos */
-        rpos = (rpos + 1) % BUF_LEN;
-
         /* Post on empty */
         csem_post(empty);
+
+        /* Update rpos */
+        rpos = (rpos + 1) % BUF_LEN;
     }
 }
 

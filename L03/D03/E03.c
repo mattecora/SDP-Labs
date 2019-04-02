@@ -41,7 +41,7 @@ void swap(int v[], int i, int j)
 
 void *quicksort(void *data)
 {
-    int i, j, x, tmp;
+    int i, j, x, resl, resr;
     struct qs_data_s data_left, data_right;
     pthread_t tid_left, tid_right;
 
@@ -77,12 +77,14 @@ void *quicksort(void *data)
     data_right.left = j+1;
     data_right.right = right;
 
-    /* Call on the left part */
-    if (quicksort_wrapper(&data_left, &tid_left) == QUICK_THR)
-        pthread_join(tid_left, NULL);
+    /* Call on the left and right part */
+    resl = quicksort_wrapper(&data_left, &tid_left);
+    resr = quicksort_wrapper(&data_right, &tid_right);
 
-    /* Call on the right part */
-    if (quicksort_wrapper(&data_right, &tid_right) == QUICK_THR)
+    /* Join threads if they have been created */
+    if (resl == QUICK_THR)
+        pthread_join(tid_left, NULL);
+    if (resr == QUICK_THR)
         pthread_join(tid_right, NULL);
 }
 

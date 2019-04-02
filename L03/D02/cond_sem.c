@@ -34,8 +34,9 @@ void csem_post(csem_t *csem)
     /* Increment value */
     csem->value++;
 
-    /* Signal on condition */
-    pthread_cond_signal(&csem->cond);
+    /* Signal on condition if new value is 1 */
+    if (csem->value == 1)
+        pthread_cond_signal(&csem->cond);
 
     /* Unlock the mutex */
     pthread_mutex_unlock(&csem->lock);
