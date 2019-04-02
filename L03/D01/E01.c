@@ -12,13 +12,14 @@
 #include <sys/time.h>
 
 #define DATA_LEN 10000
+#define BUF_LEN 20
 #define URG_THRES 80
 
 /* Global data buffers */
-long long urgent[DATA_LEN], normal[DATA_LEN];
+long long urgent[BUF_LEN], normal[BUF_LEN];
 
 /* Global semaphores */
-sem_t *fulln, *fullu;
+sem_t *emptyn, *emptyu, *fulln, *fullu;
 
 long long current_timestamp()
 {
@@ -30,13 +31,13 @@ long long current_timestamp()
 
 void *producer(void *data)
 {
-    int i, bufsel, posn = 0, posu = 0;
+    int bufsel, cntn, cntu, posn, posu;
     long long tstamp;
     struct timespec sleep_timespec;
 
     sleep_timespec.tv_sec = 0;
 
-    for (i = 0; i < DATA_LEN; i++)
+    for (cntn = 0, cntu = 0, posn = 0, posu = 0; cntn + cntu < DATA_LEN; )
     {
         /* Sleep 1-10 milliseconds */
         sleep_timespec.tv_nsec = (1 + rand() % 10) * 1000000;
@@ -46,35 +47,59 @@ void *producer(void *data)
         tstamp = current_timestamp();
         bufsel = rand() % 100;
 
+        /* Select the buffer to use */
         if (bufsel < URG_THRES)
         {
-            /* Use the normal buffer */
+            /* Print urgent tstamp */
             printf("Putting %llu in buffer normal.\n", tstamp);
-            normal[posn++] = tstamp;
+
+            /* Wait on normal empty */
+            sem_wait(emptyn);
+
+            /* Put tstamp in normal */
+            normal[posn] = tstamp;
+
+            /* Post on normal full */
             sem_post(fulln);
+
+            /* Update posn and cntn */
+            posn = (posn + 1) % BUF_LEN;
+            cntn++;
         }
         else
         {
-            /* Use the urgent buffer */
+            /* Print normal tstamp */
             printf("Putting %llu in buffer urgent.\n", tstamp);
-            urgent[posu++] = tstamp;
+
+            /* Wait on urgent empty */
+            sem_wait(emptyu);
+
+            /* Put tstamp in urgent */
+            urgent[posu] = tstamp;
+
+            /* Post on urgent full */
             sem_post(fullu);
+
+            /* Update posu and cntu */
+            posu = (posu + 1) % BUF_LEN;
+            cntu++;
         }
     }
 
-    printf("Producer completed. Total urgent: %d, total normal: %d\n", posu, posn);
+    printf("Producer completed. Total urgent: %d (%d%%), total normal: %d (%d%%).\n", 
+        cntu, cntu * 100 / DATA_LEN, cntn, cntn * 100 / DATA_LEN);
 }
 
 void *consumer(void *data)
 {
-    int i, posn = 0, posu = 0;
+    int cntn, cntu, posn, posu;
     long long tstamp;
     struct timespec sleep_timespec;
 
     sleep_timespec.tv_sec = 0;
     sleep_timespec.tv_nsec = 10000000;
 
-    for (i = 0; i < DATA_LEN; )
+    for (cntn = 0, cntu = 0, posn = 0, posu = 0; cntn + cntu < DATA_LEN; )
     {
         /* Sleep 10 milliseconds */
         nanosleep(&sleep_timespec, NULL);
@@ -82,21 +107,38 @@ void *consumer(void *data)
         /* Check if data is available on buffers */
         if (sem_trywait(fullu) == 0)
         {
-            /* Process urgent data */
-            tstamp = urgent[posu++];
+            /* Get tstamp from urgent */
+            tstamp = urgent[posu];
+            
+            /* Post on urgent empty */
+            sem_post(emptyu);
+
+            /* Print urgent tstamp */
             printf("Retrieving %llu from buffer urgent.\n", tstamp);
-            i++;
+            
+            /* Update posu and cntu */
+            posu = (posu + 1) % BUF_LEN;
+            cntu++;
         }
         else if (sem_trywait(fulln) == 0)
         {
-            /* Process normal data */
-            tstamp = normal[posn++];
+            /* Get tstamp from normal */
+            tstamp = normal[posn];
+            
+            /* Post on normal empty */
+            sem_post(emptyn);
+            
+            /* Print normal tstamp */
             printf("Retrieving %llu from buffer normal.\n", tstamp);
-            i++;
+
+            /* Update posn and cntn */
+            posn = (posn + 1) % BUF_LEN;
+            cntn++;
         }
     }
 
-    printf("Consumer completed. Total urgent: %d, total normal: %d\n", posu, posn);
+    printf("Consumer completed. Total urgent: %d (%d%%), total normal: %d (%d%%).\n", 
+        cntu, cntu * 100 / DATA_LEN, cntn, cntn * 100 / DATA_LEN);
 }
 
 int main(int argc, char const *argv[])
@@ -107,9 +149,13 @@ int main(int argc, char const *argv[])
     srand(time(0));
 
     /* Allocate and initialize semaphores */
+    emptyn = malloc(sizeof(sem_t));
+    emptyu = malloc(sizeof(sem_t));
     fulln = malloc(sizeof(sem_t));
     fullu = malloc(sizeof(sem_t));
 
+    sem_init(emptyn, 0, BUF_LEN);
+    sem_init(emptyu, 0, BUF_LEN);
     sem_init(fulln, 0, 0);
     sem_init(fullu, 0, 0);
 
@@ -121,9 +167,13 @@ int main(int argc, char const *argv[])
     pthread_join(cons, NULL);
 
     /* Destroy and free semaphores */
+    sem_destroy(emptyn);
+    sem_destroy(emptyu);
     sem_destroy(fulln);
     sem_destroy(fullu);
 
+    free(emptyn);
+    free(emptyu);
     free(fulln);
     free(fullu);
 
