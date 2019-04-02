@@ -54,13 +54,13 @@ void *producer(void *data)
             printf("Putting %llu in buffer normal.\n", tstamp);
 
             /* Wait on normal empty */
-            sem_wait(emptyn);
+            while (sem_wait(emptyn) == -1);
 
             /* Put tstamp in normal */
             normal[posn] = tstamp;
 
             /* Post on normal full */
-            sem_post(fulln);
+            while (sem_post(fulln) == -1);
 
             /* Update posn and cntn */
             posn = (posn + 1) % BUF_LEN;
@@ -72,13 +72,13 @@ void *producer(void *data)
             printf("Putting %llu in buffer urgent.\n", tstamp);
 
             /* Wait on urgent empty */
-            sem_wait(emptyu);
+            while (sem_wait(emptyu) == -1);
 
             /* Put tstamp in urgent */
             urgent[posu] = tstamp;
 
             /* Post on urgent full */
-            sem_post(fullu);
+            while (sem_post(fullu) == -1);
 
             /* Update posu and cntu */
             posu = (posu + 1) % BUF_LEN;
@@ -111,7 +111,7 @@ void *consumer(void *data)
             tstamp = urgent[posu];
             
             /* Post on urgent empty */
-            sem_post(emptyu);
+            while (sem_post(emptyu) == -1);
 
             /* Print urgent tstamp */
             printf("Retrieving %llu from buffer urgent.\n", tstamp);
@@ -126,7 +126,7 @@ void *consumer(void *data)
             tstamp = normal[posn];
             
             /* Post on normal empty */
-            sem_post(emptyn);
+            while (sem_post(emptyn) == -1);
             
             /* Print normal tstamp */
             printf("Retrieving %llu from buffer normal.\n", tstamp);
@@ -148,30 +148,48 @@ int main(int argc, char const *argv[])
     /* Initialize random seed */
     srand(time(0));
 
-    /* Allocate and initialize semaphores */
-    emptyn = malloc(sizeof(sem_t));
-    emptyu = malloc(sizeof(sem_t));
-    fulln = malloc(sizeof(sem_t));
-    fullu = malloc(sizeof(sem_t));
+    /* Allocate semaphores */
+    if ((emptyn = malloc(sizeof(sem_t))) == NULL || 
+        (emptyu = malloc(sizeof(sem_t))) == NULL || 
+        (fulln = malloc(sizeof(sem_t))) == NULL || 
+        (fullu = malloc(sizeof(sem_t))) == NULL)
+    {
+        fprintf(stderr, "Cannot allocate semaphores.\n");
+        return -1;
+    }
 
-    sem_init(emptyn, 0, BUF_LEN);
-    sem_init(emptyu, 0, BUF_LEN);
-    sem_init(fulln, 0, 0);
-    sem_init(fullu, 0, 0);
+    /* Initialize semaphores */
+    if (sem_init(emptyn, 0, BUF_LEN) == -1 ||
+        sem_init(emptyu, 0, BUF_LEN) == -1 ||
+        sem_init(fulln, 0, 0) == -1 ||
+        sem_init(fullu, 0, 0) == -1)
+    {
+        fprintf(stderr, "Cannot initialize semaphores.\n");
+        return -1;
+    }
 
-    /* Create and join producer and consumer */
-    pthread_create(&prod, NULL, producer, NULL);
-    pthread_create(&cons, NULL, consumer, NULL);
+    /* Create producer and consumer */
+    if (pthread_create(&prod, NULL, producer, NULL) != 0 ||
+        pthread_create(&cons, NULL, consumer, NULL) != 0)
+    {
+        fprintf(stderr, "Cannot create threads.\n");
+        return -1;
+    }
 
-    pthread_join(prod, NULL);
-    pthread_join(cons, NULL);
+    /* Join producer and consumer */
+    if (pthread_join(prod, NULL) != 0 || pthread_join(cons, NULL) != 0)
+    {
+        fprintf(stderr, "Cannot join threads.\n");
+        return -1;
+    }
 
-    /* Destroy and free semaphores */
+    /* Destroy semaphores */
     sem_destroy(emptyn);
     sem_destroy(emptyu);
     sem_destroy(fulln);
     sem_destroy(fullu);
 
+    /* Free semaphores */
     free(emptyn);
     free(emptyu);
     free(fulln);

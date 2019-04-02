@@ -4,18 +4,18 @@
 #include <pthread.h>
 
 /* Semaphore implemented via conditions and mutexes */
-struct csem_s
+struct sema_s
 {
     int value;
     pthread_mutex_t lock;
     pthread_cond_t cond;
 };
 
-typedef struct csem_s csem_t;
+typedef struct sema_s sema_t;
 
-void csem_init(csem_t *csem, int initial_val);
-void csem_wait(csem_t *csem);
-void csem_post(csem_t *csem);
-void csem_destroy(csem_t *csem);
+int sema_init(sema_t *csem, int initial_val);
+int sema_wait(sema_t *csem);
+int sema_post(sema_t *csem);
+int sema_destroy(sema_t *csem);
 
 #endif

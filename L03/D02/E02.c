@@ -17,7 +17,7 @@
 int buffer[BUF_LEN];
 
 /* Global semaphores */
-csem_t *empty, *full;
+sema_t *empty, *full;
 
 void *producer(void *data)
 {
@@ -26,13 +26,13 @@ void *producer(void *data)
     for (i = 0; i < DATA_LEN; i++)
     {
         /* Wait on empty */
-        csem_wait(empty);
+        while (sema_wait(empty) == -1);
 
         /* Produce a value */
         buffer[wpos] = rand() % DATA_LEN;
 
         /* Post on full */
-        csem_post(full);
+        while (sema_post(full) == -1);
 
         /* Update wpos */
         wpos = (wpos + 1) % BUF_LEN;
@@ -46,13 +46,13 @@ void *consumer(void *data)
     for (i = 0; i < DATA_LEN; i++)
     {
         /* Wait on full */
-        csem_wait(full);
+        while (sema_wait(full) == -1);
 
         /* Consume a value */
         printf("%4d ", buffer[rpos]);
 
         /* Post on empty */
-        csem_post(empty);
+        while (sema_post(empty) == -1);
 
         /* Update rpos */
         rpos = (rpos + 1) % BUF_LEN;
@@ -67,26 +67,43 @@ int main(int argc, char const *argv[])
     /* Initialize random seed */
     srand(time(0));
     
-    /* Allocate and initialize semaphores */
-    empty = malloc(sizeof(csem_t));
-    full = malloc(sizeof(csem_t));
+    /* Allocate semaphores */
+    if ((empty = malloc(sizeof(sema_t))) == NULL || 
+        (full = malloc(sizeof(sema_t))) == NULL)
+    {
+        fprintf(stderr, "Cannot allocate semaphores.\n");
+        return -1;
+    }
 
-    csem_init(empty, BUF_LEN);
-    csem_init(full, 0);
+    /* Initialize semaphores */
+    if (sema_init(empty, BUF_LEN) == -1 || sema_init(full, 0) == -1)
+    {
+        fprintf(stderr, "Cannot initialize semaphores.\n");
+        return -1;
+    }
 
-    /* Create and join producer and consumer */
-    pthread_create(&prod, NULL, producer, NULL);
-    pthread_create(&cons, NULL, consumer, NULL);
+    /* Create producer and consumer */
+    if (pthread_create(&prod, NULL, producer, NULL) != 0 ||
+        pthread_create(&cons, NULL, consumer, NULL) != 0)
+    {
+        fprintf(stderr, "Cannot create threads.\n");
+        return -1;
+    }
 
-    pthread_join(prod, NULL);
-    pthread_join(cons, NULL);
+    /* Join producer and consumer */
+    if (pthread_join(prod, NULL) != 0 || pthread_join(cons, NULL) != 0)
+    {
+        fprintf(stderr, "Cannot join threads.\n");
+        return -1;
+    }
 
     printf("\n");
 
-    /* Destroy and free semaphores */
-    csem_destroy(full);
-    csem_destroy(empty);
+    /* Destroy semaphores */
+    sema_destroy(full);
+    sema_destroy(empty);
 
+    /* Free semaphores */
     free(full);
     free(empty);
 

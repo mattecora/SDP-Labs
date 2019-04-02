@@ -1,50 +1,68 @@
 #include "cond_sem.h"
 
-void csem_init(csem_t *csem, int initial_val)
+int sema_init(sema_t *sema, int initial_val)
 {
     /* Set the initial value */
-    csem->value = initial_val;
+    sema->value = initial_val;
 
     /* Initialize mutex and condition */
-    pthread_mutex_init(&csem->lock, NULL);
-    pthread_cond_init(&csem->cond, NULL);
+    if (pthread_mutex_init(&sema->lock, NULL) != 0)
+        return -1;
+    if (pthread_cond_init(&sema->cond, NULL) != 0)
+        return -1;
+    
+    return 0;
 }
 
-void csem_wait(csem_t *csem)
+int sema_wait(sema_t *sema)
 {
     /* Lock the mutex */
-    pthread_mutex_lock(&csem->lock);
+    if (pthread_mutex_lock(&sema->lock) != 0)
+        return -1;
     
     /* Wait on condition until value is 0 */
-    while (csem->value == 0)
-        pthread_cond_wait(&csem->cond, &csem->lock);
+    while (sema->value == 0)
+        if (pthread_cond_wait(&sema->cond, &sema->lock) != 0)
+            return -1;
     
     /* Decrement value */
-    csem->value--;
+    sema->value--;
 
     /* Unlock the mutex */
-    pthread_mutex_unlock(&csem->lock);
+    if (pthread_mutex_unlock(&sema->lock) != 0)
+        return -1;
+    
+    return 0;
 }
 
-void csem_post(csem_t *csem)
+int sema_post(sema_t *sema)
 {
     /* Lock the mutex */
-    pthread_mutex_lock(&csem->lock);
+    if (pthread_mutex_lock(&sema->lock) != 0)
+        return -1;
 
     /* Increment value */
-    csem->value++;
+    sema->value++;
 
     /* Signal on condition if new value is 1 */
-    if (csem->value == 1)
-        pthread_cond_signal(&csem->cond);
+    if (sema->value == 1)
+        if (pthread_cond_signal(&sema->cond) != 0)
+            return -1;
 
     /* Unlock the mutex */
-    pthread_mutex_unlock(&csem->lock);
+    if (pthread_mutex_unlock(&sema->lock) != 0)
+        return -1;
+    
+    return 0;
 }
 
-void csem_destroy(csem_t *csem)
+int sema_destroy(sema_t *sema)
 {
     /* Destroy mutex and condition */
-    pthread_mutex_destroy(&csem->lock);
-    pthread_cond_destroy(&csem->cond);
+    if (pthread_mutex_destroy(&sema->lock) != 0)
+        return -1;
+    if (pthread_cond_destroy(&sema->cond) != 0)
+        return -1;
+    
+    return 0;
 }
