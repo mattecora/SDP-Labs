@@ -9,9 +9,9 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
-
-#define SIZE 100
 
 #define QUICK_REC 0
 #define QUICK_THR 1
@@ -108,7 +108,8 @@ int quicksort_wrapper(struct qs_data_s *data, pthread_t *tid)
 
 int main(int argc, char const *argv[])
 {
-    int i, fd;
+    int i, fd, len;
+    struct stat file_stats;
     struct qs_data_s data;
     pthread_t tid;
 
@@ -128,8 +129,16 @@ int main(int argc, char const *argv[])
         return -1;
     }
 
+    /* Read file stats */
+    if (fstat(fd, &file_stats) != 0)
+    {
+        fprintf(stderr, "Cannot read file stats.\n");
+        return -1;
+    }
+    len = file_stats.st_size / sizeof(int);
+
     /* Map the file to main memory */
-    int *v = mmap(NULL, SIZE * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    int *v = mmap(NULL, file_stats.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (v == MAP_FAILED)
     {
         fprintf(stderr, "Cannot map input file to memory.\n");
@@ -139,7 +148,7 @@ int main(int argc, char const *argv[])
     /* Setup the data structure for the first thread */
     data.v = v;
     data.left = 0;
-    data.right = SIZE;
+    data.right = len;
 
     /* Call quicksort on the entire array */
     if (quicksort_wrapper(&data, &tid) == QUICK_THR)
@@ -147,12 +156,12 @@ int main(int argc, char const *argv[])
     
     /* Print sorted vector */
     printf("Sorting finished. Sorted vector:\n");
-    for (i = 0; i < SIZE; i++)
+    for (i = 0; i < len; i++)
         printf("%d ", v[i]);
     printf("\n");
     
     /* Unmap and close the file */
-    munmap(v, SIZE * sizeof(int));
+    munmap(v, file_stats.st_size);
     close(fd);
 
     return 0;
