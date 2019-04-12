@@ -58,20 +58,20 @@ init_module(void)
   
     firstminor = 0;
     count = 1; // just one minor number
-    ret = alloc_chrdev_region( &dev_no , firstminor, count, DEVICE_NAME); 
+    ret = alloc_chrdev_region(&dev_no, firstminor, count, DEVICE_NAME); 
   
     if (ret < 0)
     {
-        printk(KERN_ALERT "Registering char device failed with %d\n", Major);
+        printk(KERN_ALERT "Registering char device failed with %d.\n", Major);
         return ret;
     }
 
     Major = MAJOR(dev_no);
-    dev = MKDEV(Major,0);
-    ret = cdev_add(my_cdev, dev,1); //  one is the number of device minor numbers
+    dev = MKDEV(Major, 0);
+    ret = cdev_add(my_cdev, dev, 1); //  one is the number of device minor numbers
     if (ret < 0)
     {
-        printk(KERN_INFO "Unable to allocate cdev");
+        printk(KERN_INFO "Unable to allocate cdev.\n");
         return ret;
     }
 
@@ -91,7 +91,7 @@ cleanup_module(void)
 {
     cdev_del(my_cdev);
     unregister_chrdev_region(dev, 1);
-    printk(KERN_INFO "Device %s, Major %d unregistered\n", DEVICE_NAME, Major);
+    printk(KERN_INFO "Device %s, major %d unregistered.\n", DEVICE_NAME, Major);
 }
 
 /*
@@ -109,7 +109,7 @@ device_open(struct inode *inode, struct file *file)
 
     if(down_interruptible(&me))
     {
-        printk(KERN_INFO "could not hold semaphore");
+        printk(KERN_INFO "could not hold semaphore\n");
         return -1;
     }
 
