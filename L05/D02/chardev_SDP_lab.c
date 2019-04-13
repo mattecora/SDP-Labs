@@ -1,4 +1,3 @@
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -107,7 +106,7 @@ device_open(struct inode *inode, struct file *file)
 {
     printk(KERN_INFO "open\n");
 
-    if(down_interruptible(&me))
+    if (down_interruptible(&me))
     {
         printk(KERN_INFO "could not hold semaphore\n");
         return -1;

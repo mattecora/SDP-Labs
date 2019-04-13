@@ -1,7 +1,7 @@
 /*
  *  hello-5.c - Demonstrates command line argument passing to a module.
  *  example of use:
- *  insmod hello-5.ko mystring="lafax" myshort=123 myintArray=-1,3
+ *  insmod hello-5.ko mystring="sdplab" myshort=123 myintArray=-1,3
  */
 #include <linux/module.h>
 #include <linux/moduleparam.h>
