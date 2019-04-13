@@ -5,10 +5,10 @@ insmod chardev_SDP_lab.ko
 
 # Show the log
 echo "Module installed. Log:"
-dmesg | tail
+dmesg | tail -n 4
 
-# Get the major number
-major=$(dmesg | tail -n 4 | grep mknod -m 1 | cut -d ' ' -f 6)
+# Get the command to run
+mknod=$(dmesg | tail -n 4 | grep mknod -m 1 | cut -d "'" -f 2)
 
 # Create the device
-mknod /dev/chardev_SDP_lab c $major 0
+eval $mknod

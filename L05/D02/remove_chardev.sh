@@ -8,4 +8,4 @@ rmmod chardev_SDP_lab.ko
 
 # Show the log
 echo "Module removed. Log:"
-dmesg | tail
+dmesg | tail -n 1

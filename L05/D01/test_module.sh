@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Install the module
-insmod hello-5.ko
+insmod hello-5.ko $@
 
 echo "Module installed. Log:"
 echo ""
