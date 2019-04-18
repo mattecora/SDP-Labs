@@ -137,6 +137,9 @@ device_read(struct file *filp, char *buff, size_t count, loff_t *offp)
 
     /* Limit count to the buffer length to avoid overflows */
     count = (count < strlen(buf_ptr)) ? count : strlen(buf_ptr);
+    printk(KERN_INFO "count: %d\n", (int) count);
+
+    /* Copy data to user */
     ret = copy_to_user(buff, buf_ptr, count);
 
     /* Update the buffer pointer */
@@ -158,7 +161,10 @@ device_write(struct file *filp, const char *buff, size_t count, loff_t *offp)
     memset(char_dev_buf, 0, BUF_LEN);
 
     /* Limit count to the buffer length to avoid overflows */
-    count = (count < BUF_LEN) ? count : BUF_LEN;
+    count = (count < BUF_LEN - 1) ? count : BUF_LEN - 1;
+    printk(KERN_INFO "count: %d\n", (int) count);
+
+    /* Copy data from user */
     ret = copy_from_user(char_dev_buf, buff, count);
 
     /* Reset the buffer pointer */
