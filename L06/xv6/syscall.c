@@ -142,6 +142,8 @@ syscall(void)
   int num;
 
   num = proc->tf->eax;
+  //cprintf("%d %s: executing syscall %d\n", proc->pid, proc->name, num);
+
   if(num >= 0 && num < SYS_open && syscalls[num]) {
     proc->tf->eax = syscalls[num]();
   } else if (num >= SYS_open && num < NELEM(syscalls) && syscalls[num]) {
