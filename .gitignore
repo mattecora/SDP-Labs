@@ -8,3 +8,7 @@
 !*.ld
 !Makefile
 !*.pdf
+!*.cpp
+!*.sln
+!*.vcxproj
+!L*_text.txt
