@@ -1,3 +1,8 @@
+/******************************************************************************
+ * Lab 08 - Exercise 2                                                        *
+ * Matteo Corain - System and device programming - A.Y. 2018-19               *
+ ******************************************************************************/
+
 #define UNICODE
 #define _UNICODE
 #define _CRT_SECURE_NO_WARNINGS

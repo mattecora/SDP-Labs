@@ -1,3 +1,8 @@
+/******************************************************************************
+ * Lab 08 - Exercise 1                                                        *
+ * Matteo Corain - System and device programming - A.Y. 2018-19               *
+ ******************************************************************************/
+
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
