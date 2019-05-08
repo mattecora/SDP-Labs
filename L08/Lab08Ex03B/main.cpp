@@ -20,7 +20,8 @@ HANDLE studentFile;
 
 typedef struct student
 {
-	INT identifier, registerNum;
+	INT identifier;
+	LONGLONG registerNum;
 	TCHAR surname[FLDLEN + 1], name[FLDLEN + 1];
 	INT mark;
 } STUDENT;
@@ -102,7 +103,7 @@ VOID Menu()
 				continue;
 
 			// Print the student
-			_tprintf(_T("%d %d %s %s %d\n"),
+			_tprintf(_T("%d %lld %s %s %d\n"),
 				student.identifier, student.registerNum, student.name, student.surname, student.mark);
 		}
 		else if (buffer[0] == 'W')
@@ -115,13 +116,13 @@ VOID Menu()
 			}
 
 			// Read student data
-			_tprintf(_T("Please, input student data: "));
+			_tprintf(_T("Input student data: "));
 
 			memset(buffer, 0, BUFLEN);
 			_fgetts(buffer, BUFLEN, stdin);
 
 			// Parse student data
-			if (_stscanf(buffer, _T("%d %d %s %s %d\n"),
+			if (_stscanf(buffer, _T("%d %lld %s %s %d\n"),
 				&student.identifier, &student.registerNum, student.name, student.surname, &student.mark) != 5)
 			{
 				_tprintf(_T("Invalid student data.\n"));

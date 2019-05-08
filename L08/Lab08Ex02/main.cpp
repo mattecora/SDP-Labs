@@ -17,7 +17,8 @@
 
 typedef struct student
 {
-	INT identifier, registerNum;
+	INT identifier;
+	LONGLONG registerNum;
 	TCHAR surname[MAXLEN + 1], name[MAXLEN + 1];
 	INT mark;
 } STUDENT;
@@ -44,7 +45,7 @@ INT _tmain(INT argc, LPTSTR argv[])
 	outFile = CreateFile(argv[2], GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	// Read all the input file
-	while (_ftscanf(inFile, _T("%d %d %s %s %d"), &student.identifier, &student.registerNum, student.name, student.surname, &student.mark) != EOF)
+	while (_ftscanf(inFile, _T("%d %lld %s %s %d"), &student.identifier, &student.registerNum, student.name, student.surname, &student.mark) != EOF)
 	{
 		// Store the student in the output file
 		if (!WriteFile(outFile, &student, sizeof(STUDENT), &nOut, NULL) || nOut != sizeof(STUDENT))
@@ -68,7 +69,7 @@ INT _tmain(INT argc, LPTSTR argv[])
 	// Read all the output file
 	while (ReadFile(outFile, &student, sizeof(STUDENT), &nOut, NULL) && nOut == sizeof(STUDENT))
 	{
-		_tprintf(_T("%d %d %s %s %d\n"), student.identifier, student.registerNum, student.name, student.surname, student.mark);
+		_tprintf(_T("%d %lld %s %s %d\n"), student.identifier, student.registerNum, student.name, student.surname, student.mark);
 	}
 
 	// Close output file

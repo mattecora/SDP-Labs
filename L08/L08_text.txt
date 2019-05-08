@@ -125,7 +125,7 @@ Write a C program in the MS Visual Studio environment which is able
 to:
 - Read such a file and create a new file with the exact same content
   but stored in *binary* format and with *fixed-length* records
-  (integer + long integer + 30 characters + 30 characters + integer).
+  (integer + long integer + 31 characters + 31 characters + integer).
 - To verify the previous step (i.e., to be sure the binary file has
   been stored in a proper way) re-read the binary file (the one
   just written) and write its content on standard output.
@@ -175,7 +175,7 @@ user choice: R 1     // The user wants to read info for student 1
 1 100000 Romano Antonio 25
 user choice: W 1     // The user wants to over-write info for student 1
                      // with info read from standard input
-Data: 1 100000 Romano Antonio 27y
+Data: 1 100000 Romano Antonio 27
                      // Read input data and store them for student 1
 user choice: W 5     // The user wants to add data for student 5
                      // with info read from standard input
@@ -193,9 +193,9 @@ Noticed that
 
 Write three versions of the program:
 - Version A
-  read the file using SetFilePointerEx
+  read and write the file using SetFilePointerEx
 - Version B
-  read the file using an overlapped data structure 
+  read and write the file using an overlapped data structure 
 - Version C
   lock each record before reading (or writing) it, and release the
   same record as soon as the operation has been performed.
