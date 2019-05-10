@@ -20,20 +20,20 @@ HANDLE studentFile;
 
 typedef struct student
 {
-	INT identifier;
-	LONGLONG registerNum;
+	DWORD identifier;
+	DWORDLONG registerNum;
 	TCHAR surname[FLDLEN + 1], name[FLDLEN + 1];
-	INT mark;
+	DWORD mark;
 } STUDENT;
 
-BOOL ReadStudent(INT n, STUDENT* student)
+BOOL ReadStudent(DWORDLONG n, STUDENT* student)
 {
 	DWORD nIn;
 	LARGE_INTEGER off;
 	OVERLAPPED ov;
 
 	// Setup the structure
-	off.QuadPart = ((LONGLONG)n - 1) * sizeof(STUDENT);
+	off.QuadPart = (n - 1) * sizeof(STUDENT);
 
 	memset(&ov, 0, sizeof(OVERLAPPED));
 	ov.Offset = off.LowPart;
@@ -59,14 +59,14 @@ BOOL ReadStudent(INT n, STUDENT* student)
 	return TRUE;
 }
 
-BOOL WriteStudent(INT n, STUDENT* student)
+BOOL WriteStudent(DWORDLONG n, STUDENT* student)
 {
 	DWORD nOut;
 	LARGE_INTEGER off;
 	OVERLAPPED ov;
 
 	// Setup the structure
-	off.QuadPart = ((LONGLONG)n - 1) * sizeof(STUDENT);
+	off.QuadPart = (n - 1) * sizeof(STUDENT);
 
 	memset(&ov, 0, sizeof(OVERLAPPED));
 	ov.Offset = off.LowPart;
@@ -94,7 +94,7 @@ BOOL WriteStudent(INT n, STUDENT* student)
 
 VOID Menu()
 {
-	LONGLONG n;
+	DWORDLONG n;
 	TCHAR buffer[BUFLEN];
 	STUDENT student;
 
@@ -156,8 +156,6 @@ VOID Menu()
 			break;
 		else
 			_tprintf(_T("Not a valid command!\n"));
-
-		_tprintf(_T("\n"));
 	}
 }
 

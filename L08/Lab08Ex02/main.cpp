@@ -17,10 +17,10 @@
 
 typedef struct student
 {
-	INT identifier;
-	LONGLONG registerNum;
+	DWORD identifier;
+	DWORDLONG registerNum;
 	TCHAR surname[MAXLEN + 1], name[MAXLEN + 1];
-	INT mark;
+	DWORD mark;
 } STUDENT;
 
 INT _tmain(INT argc, LPTSTR argv[])
