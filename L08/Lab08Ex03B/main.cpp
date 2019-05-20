@@ -16,8 +16,6 @@
 #define FLDLEN 30
 #define BUFLEN 100
 
-HANDLE studentFile;
-
 typedef struct student
 {
 	DWORD identifier;
@@ -26,7 +24,7 @@ typedef struct student
 	DWORD mark;
 } STUDENT;
 
-BOOL ReadStudent(DWORDLONG n, STUDENT* student)
+BOOL ReadStudent(HANDLE studentFile, DWORDLONG n, STUDENT* student)
 {
 	DWORD nIn;
 	LARGE_INTEGER off;
@@ -49,7 +47,7 @@ BOOL ReadStudent(DWORDLONG n, STUDENT* student)
 	return TRUE;
 }
 
-BOOL WriteStudent(DWORDLONG n, STUDENT* student)
+BOOL WriteStudent(HANDLE studentFile, DWORDLONG n, STUDENT* student)
 {
 	DWORD nOut;
 	LARGE_INTEGER off;
@@ -72,7 +70,7 @@ BOOL WriteStudent(DWORDLONG n, STUDENT* student)
 	return TRUE;
 }
 
-VOID Menu()
+VOID Menu(HANDLE studentFile)
 {
 	DWORDLONG n;
 	TCHAR buffer[BUFLEN];
@@ -99,7 +97,7 @@ VOID Menu()
 			}
 
 			// Read the student
-			if (!ReadStudent(n, &student))
+			if (!ReadStudent(studentFile, n, &student))
 				continue;
 
 			// Print the student
@@ -129,7 +127,7 @@ VOID Menu()
 				continue;
 			}
 
-			if (!WriteStudent(n, &student))
+			if (!WriteStudent(studentFile, n, &student))
 				continue;
 		}
 		else if (buffer[0] == 'E')
@@ -141,10 +139,7 @@ VOID Menu()
 
 INT _tmain(INT argc, LPTSTR argv[])
 {
-	DWORD nOut;
-	LARGE_INTEGER off, retOff;
-	STUDENT student;
-	HANDLE outFile;
+	HANDLE studentFile;
 
 	// Check parameters
 	if (argc < 2)
@@ -162,7 +157,7 @@ INT _tmain(INT argc, LPTSTR argv[])
 	}
 
 	// Show user menu
-	Menu();
+	Menu(studentFile);
 
 	// Close output file
 	CloseHandle(studentFile);
