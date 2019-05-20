@@ -149,6 +149,8 @@ BOOL CopyPath(LPTSTR inputPath, LPTSTR outputPath)
 
 INT _tmain(INT argc, LPTSTR argv[])
 {
+    TCHAR cwd[PATHLEN], absOutput[PATHLEN];
+
     // Check input parameters
     if (argc < 3)
     {
@@ -156,8 +158,19 @@ INT _tmain(INT argc, LPTSTR argv[])
         return -1;
     }
 
+    // Check if target path is relative and make it absolute
+    if (argv[2][1] != ':')
+    {
+        GetCurrentDirectory(PATHLEN, cwd);
+        _stprintf(absOutput, _T("%s\\%s"), cwd, argv[2]);
+    }
+    else
+    {
+        _tcscpy(absOutput, argv[2]);
+    }
+
     // Copy the two paths
-    CopyPath(argv[1], argv[2]);
+    CopyPath(argv[1], absOutput);
 
     return 0;
 }
