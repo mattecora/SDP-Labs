@@ -1,5 +1,5 @@
 /******************************************************************************
- * Lab 09 - Exercise 3 (using files)                                          *
+ * Lab 09 - Exercise 3 (using thread synchronization and files)               *
  * Matteo Corain - System and device programming - A.Y. 2018-19               *
  ******************************************************************************/
 
@@ -16,16 +16,20 @@
 #define PATHLEN 1024
 #define LINELEN 4096
 
-BOOL VisitPath(LPTSTR path, DWORD level, FILE* out)
+CRITICAL_SECTION csPrint;
+HANDLE eventStartPrint, eventEndPrint;
+DWORD finishedTID;
+
+BOOL VisitPath(LPTSTR path, DWORD level, FILE * out)
 {
     TCHAR searchPath[PATHLEN], newPath[PATHLEN];
     HANDLE searchHandle;
     WIN32_FIND_DATA fileData;
-    
+
     // Open the search handle
     _stprintf(searchPath, _T("%s\\*"), path);
     searchHandle = FindFirstFile(searchPath, &fileData);
-    
+
     if (searchHandle == INVALID_HANDLE_VALUE)
     {
         _ftprintf(stderr, _T("Cannot find the first file.\n"));
@@ -84,9 +88,23 @@ DWORD WINAPI ThreadVisit(LPVOID data)
 
     // Visit the given path
     VisitPath(absolutePath, 1, fp);
-    
+
     // Close the file
     fclose(fp);
+
+    // Go in mutual exclusion with other ThreadVisit
+    EnterCriticalSection(&csPrint);
+    
+    // Write the current TID
+    finishedTID = GetCurrentThreadId();
+
+    // Signal to ThreadPrint and wait for completion
+    SetEvent(eventStartPrint);
+    WaitForSingleObject(eventEndPrint, INFINITE);
+    
+    // Exit critical section
+    LeaveCriticalSection(&csPrint);
+
     return 0;
 }
 
@@ -109,6 +127,21 @@ VOID PrintResults(DWORD threadId)
     DeleteFile(filename);
 }
 
+DWORD WINAPI ThreadPrint(LPVOID data)
+{
+    DWORD i, nThreads = *((LPDWORD)data);
+    
+    // Print results when threads finish
+    for (i = 0; i < nThreads - 1; i++)
+    {
+        WaitForSingleObject(eventStartPrint, INFINITE);
+        PrintResults(finishedTID);
+        SetEvent(eventEndPrint);
+    }
+        
+    return 0;
+}
+
 INT _tmain(INT argc, LPTSTR argv[])
 {
     DWORD i, nThreads;
@@ -123,7 +156,7 @@ INT _tmain(INT argc, LPTSTR argv[])
     }
 
     // Allocate dynamic memory
-    nThreads = argc - 1;
+    nThreads = argc;
     threads = (LPHANDLE)malloc(nThreads * sizeof(HANDLE));
     threadIds = (LPDWORD)malloc(nThreads * sizeof(DWORD));
     if (threads == NULL || threadIds == NULL)
@@ -132,16 +165,29 @@ INT _tmain(INT argc, LPTSTR argv[])
         return -1;
     }
 
+    // Create synchronization objects
+    InitializeCriticalSection(&csPrint);
+    eventStartPrint = CreateEvent(NULL, FALSE, FALSE, NULL);
+    eventEndPrint = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+    if (eventStartPrint == NULL || eventEndPrint == NULL)
+    {
+        _ftprintf(stderr, _T("Cannot create mutexes.\n"));
+        return -1;
+    }
+
     // Create threads
-    for (i = 0; i < nThreads; i++)
+    for (i = 0; i < nThreads - 1; i++)
         threads[i] = CreateThread(NULL, 0, ThreadVisit, argv[i + 1], 0, &threadIds[i]);
+    threads[nThreads - 1] = CreateThread(NULL, 0, ThreadPrint, &nThreads, 0, &threadIds[nThreads - 1]);
 
     // Join threads
     WaitForMultipleObjects(nThreads, threads, TRUE, INFINITE);
 
-    // Print results
-    for (i = 0; i < nThreads; i++)
-        PrintResults(threadIds[i]);
+    // Destroy synchronization objects
+    DeleteCriticalSection(&csPrint);
+    CloseHandle(eventStartPrint);
+    CloseHandle(eventEndPrint);
 
     // Free dynamic memory
     free(threads);
