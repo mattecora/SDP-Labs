@@ -42,14 +42,16 @@ BOOL VisitPath(LPTSTR path, DWORD level, FILE* out)
         // Check if the entry is a directory
         if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         {
+            // List the directory
+            _ftprintf(out, _T("%*c %d - Dir: %s\n"), level, ' ', GetCurrentThreadId(), newPath);
+
             // Recur on the new directory
-            _ftprintf(out, _T("%*cDir : %s\n"), level, ' ', path);
             VisitPath(newPath, level + 1, out);
         }
         else
         {
             // List the file
-            _ftprintf(out, _T("%*cFile : %s\n"), level, ' ', newPath);
+            _ftprintf(out, _T("%*c %d - File: %s\n"), level, ' ', GetCurrentThreadId(), newPath);
         }
     } while (FindNextFile(searchHandle, &fileData));
 
@@ -75,7 +77,11 @@ DWORD WINAPI ThreadVisit(LPVOID data)
         _stprintf(absolutePath, _T("%s"), (LPTSTR)data);
     }
 
+    _ftprintf(stdout, _T("%d - Path: %s\n"), GetCurrentThreadId(), absolutePath);
+    
+    // Visit the given path
     VisitPath(absolutePath, 1, stdout);
+
     return 0;
 }
 

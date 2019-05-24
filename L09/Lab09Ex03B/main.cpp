@@ -28,7 +28,7 @@ BOOL VisitPath(LPTSTR path, DWORD level, FILE* out)
     
     if (searchHandle == INVALID_HANDLE_VALUE)
     {
-        _ftprintf(stderr, _T("Cannot find the first file.\n"));
+        _ftprintf(out, _T("Cannot find the first file.\n"));
         return FALSE;
     }
 
@@ -43,14 +43,16 @@ BOOL VisitPath(LPTSTR path, DWORD level, FILE* out)
         // Check if the entry is a directory
         if (fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         {
+            // List the directory
+            _ftprintf(out, _T("%*c %d - Dir: %s\n"), level, ' ', GetCurrentThreadId(), newPath);
+            
             // Recur on the new directory
-            _ftprintf(out, _T("%*cDir : %s\n"), level, ' ', path);
             VisitPath(newPath, level + 1, out);
         }
         else
         {
             // List the file
-            _ftprintf(out, _T("%*cFile : %s\n"), level, ' ', newPath);
+            _ftprintf(out, _T("%*c %d - File: %s\n"), level, ' ', GetCurrentThreadId(), newPath);
         }
     } while (FindNextFile(searchHandle, &fileData));
 
@@ -80,7 +82,13 @@ DWORD WINAPI ThreadVisit(LPVOID data)
     _stprintf(tempFilename, _T("%d.txt"), GetCurrentThreadId());
     fp = _tfopen(tempFilename, _T("w"));
 
-    _ftprintf(fp, _T("Path: %s\n"), absolutePath);
+    if (fp == NULL)
+    {
+        _ftprintf(stderr, _T("Cannot create output file.\n"));
+        return -1;
+    }
+
+    _ftprintf(fp, _T("%d - Path: %s\n"), GetCurrentThreadId(), absolutePath);
 
     // Visit the given path
     VisitPath(absolutePath, 1, fp);
@@ -98,6 +106,12 @@ VOID PrintResults(DWORD threadId)
     // Open the file
     _stprintf(filename, _T("%d.txt"), threadId);
     fp = _tfopen(filename, _T("r"));
+
+    if (fp == NULL)
+    {
+        _ftprintf(stderr, _T("Cannot open output file.\n"));
+        return;
+    }
 
     // Read the file line by line
     while (_fgetts(line, LINELEN, fp))
