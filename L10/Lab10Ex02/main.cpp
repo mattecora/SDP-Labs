@@ -19,7 +19,8 @@
 typedef struct shared_vars
 {
     // Synchronization variables
-    HANDLE semFileFound, semFileOk;
+    HANDLE semFileFound;
+    LPHANDLE eventsFileOk;
 
     // Shared global variables
     LPTSTR* filenames;
@@ -77,7 +78,7 @@ BOOL VisitPath(LPVISIT_THREAD_DATA vtd, LPTSTR absolutePath, LPTSTR relativePath
 
         // Signal to compare thread and wait for completion
         ReleaseSemaphore(vtd->sv->semFileFound, 1, NULL);
-        WaitForSingleObject(vtd->sv->semFileOk, INFINITE);
+        WaitForSingleObject(vtd->sv->eventsFileOk[vtd->id], INFINITE);
 
         // Check if we need to stop searching (paths not equal)
         if (vtd->sv->kill)
@@ -132,6 +133,17 @@ DWORD WINAPI ThreadVisit(LPVOID data)
         return -1;
     }
 
+    // Create event
+    vtd->sv->eventsFileOk[vtd->id] = CreateEvent(NULL, FALSE, FALSE, NULL);
+    if (vtd->sv->eventsFileOk[vtd->id] == NULL)
+    {
+        free(cwd);
+        free(absolutePath);
+        free(vtd->sv->filenames[vtd->id]);
+        _ftprintf(stderr, _T("Cannot create event.\n"));
+        return -1;
+    }
+
     // Unwrap relative paths
     if (_tcslen(vtd->path) < 2 || (vtd->path)[1] != ':')
     {
@@ -154,6 +166,9 @@ DWORD WINAPI ThreadVisit(LPVOID data)
     free(absolutePath);
     free(vtd->sv->filenames[vtd->id]);
 
+    // Destroy event
+    CloseHandle(vtd->sv->eventsFileOk[vtd->id]);
+
     // Set the termination flag and signal
     vtd->sv->finished[vtd->id] = TRUE;
     ReleaseSemaphore(vtd->sv->semFileFound, 1, NULL);
@@ -161,17 +176,19 @@ DWORD WINAPI ThreadVisit(LPVOID data)
     return 0;
 }
 
-BOOL CheckTermination(LPCOMPARE_THREAD_DATA ctd)
+BOOL CheckTermination(LPCOMPARE_THREAD_DATA ctd, BOOL all)
 {
     DWORD i;
 
     for (i = 0; i < ctd->nThreads - 1; i++)
     {
-        if (ctd->sv->finished[i] == FALSE)
+        if (ctd->sv->finished[i] == FALSE && all == TRUE)
             return FALSE;
+        else if (ctd->sv->finished[i] == TRUE && all == FALSE)
+            return TRUE;
     }
 
-    return TRUE;
+    return all;
 }
 
 BOOL CheckFilenames(LPCOMPARE_THREAD_DATA ctd)
@@ -194,38 +211,39 @@ DWORD WINAPI ThreadCompare(LPVOID data)
 
     ctd->sv->kill = FALSE;
 
-    while (1)
+    while (ctd->sv->kill == FALSE)
     {
         // Wait for all visit threads to complete
         for (i = 0; i < ctd->nThreads - 1; i++)
             WaitForSingleObject(ctd->sv->semFileFound, INFINITE);
 
         // If all terminated, then the two trees are equal
-        if (CheckTermination(ctd))
+        if (CheckTermination(ctd, TRUE))
         {
             _tprintf(_T("The given trees are equal.\n"));
-            break;
+            ctd->sv->kill = TRUE;
+        }
+
+        // If only one terminated, the two trees are partially equal
+        else if (CheckTermination(ctd, FALSE))
+        {
+            _tprintf(_T("The given trees are partially equal.\n"));
+            ctd->sv->kill = TRUE;
         }
 
         // Check all produced names
-        if (!CheckFilenames(ctd))
+        else if (!CheckFilenames(ctd))
         {
-            // At least two entries are different
             _tprintf(_T("The given trees are not equal.\n"));
-
-            // Cancel all threads
             ctd->sv->kill = TRUE;
-
-            // Unlock all visit threads
-            ReleaseSemaphore(ctd->sv->semFileOk, ctd->nThreads - 1, NULL);
-            break;
         }
 
         if (ctd->sv->kill == FALSE)
             _tprintf(_T("Entry %s is equal.\n"), ctd->sv->filenames[0]);
 
         // Unlock all visit threads
-        ReleaseSemaphore(ctd->sv->semFileOk, ctd->nThreads - 1, NULL);
+        for (i = 0; i < ctd->nThreads - 1; i++)
+            SetEvent(ctd->sv->eventsFileOk[i]);
     }
 
     return 0;
@@ -252,8 +270,9 @@ INT _tmain(INT argc, LPTSTR argv[])
     vtd = (LPVISIT_THREAD_DATA)malloc((nThreads - 1) * sizeof(VISIT_THREAD_DATA));
     sv.filenames = (LPTSTR*)malloc((nThreads - 1) * sizeof(LPTSTR));
     sv.finished = (LPBOOL)malloc((nThreads - 1) * sizeof(BOOL));
+    sv.eventsFileOk = (LPHANDLE)malloc((nThreads - 1) * sizeof(HANDLE));
 
-    if (threads == NULL || vtd == NULL || sv.filenames == NULL || sv.finished == NULL)
+    if (threads == NULL || vtd == NULL || sv.filenames == NULL || sv.finished == NULL || sv.eventsFileOk == NULL)
     {
         _ftprintf(stderr, _T("Cannot allocate memory.\n"));
         return -1;
@@ -261,11 +280,9 @@ INT _tmain(INT argc, LPTSTR argv[])
 
     // Create synchronization objects
     sv.semFileFound = CreateSemaphore(NULL, 0, nThreads - 1, NULL);
-    sv.semFileOk = CreateSemaphore(NULL, 0, nThreads - 1, NULL);
-
-    if (sv.semFileFound == NULL || sv.semFileOk == NULL)
+    if (sv.semFileFound == NULL)
     {
-        _ftprintf(stderr, _T("Cannot create events.\n"));
+        _ftprintf(stderr, _T("Cannot create semaphore.\n"));
         return -1;
     }
 
@@ -277,6 +294,12 @@ INT _tmain(INT argc, LPTSTR argv[])
         vtd[i].sv = &sv;
 
         threads[i] = CreateThread(NULL, 0, ThreadVisit, &vtd[i], 0, &threadId);
+        if (threads[i] == NULL)
+        {
+            _ftprintf(stderr, _T("Cannot create threads.\n"));
+            return -1;
+        }
+
         _tprintf(_T("Thread %d visiting path: %s\n"), threadId, argv[i + 1]);
     }
 
@@ -284,7 +307,13 @@ INT _tmain(INT argc, LPTSTR argv[])
     ctd.nThreads = nThreads;
     ctd.threads = threads;
     ctd.sv = &sv;
+    
     threads[nThreads - 1] = CreateThread(NULL, 0, ThreadCompare, &ctd, 0, NULL);
+    if (threads[nThreads - 1] == NULL)
+    {
+        _ftprintf(stderr, _T("Cannot create threads.\n"));
+        return -1;
+    }
 
     // Join threads
     WaitForMultipleObjects(nThreads, threads, TRUE, INFINITE);
@@ -293,15 +322,15 @@ INT _tmain(INT argc, LPTSTR argv[])
     for (i = 0; i < nThreads; i++)
         CloseHandle(threads[i]);
 
-    // Destroy synchronization objects
+    // Destroy semaphore
     CloseHandle(sv.semFileFound);
-    CloseHandle(sv.semFileOk);
 
     // Free dynamic memory
     free(threads);
     free(vtd);
     free(sv.filenames);
     free(sv.finished);
+    free(sv.eventsFileOk);
 
     return 0;
 }
