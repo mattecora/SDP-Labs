@@ -13,23 +13,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct synchronization_vars
+typedef struct shared_vars
 {
     DWORD nL2R, nR2L;
     CRITICAL_SECTION meL2R, meR2L;
     HANDLE busy;
-} SYNCHRONIZATION_VARS, * LPSYNCHRONIZATION_VARS;
+} SHARED_VARS, * LPSHARED_VARS;
 
 typedef struct thread_data
 {
     DWORD timeA, timeT, carsNumber;
-    LPSYNCHRONIZATION_VARS sv;
+    LPSHARED_VARS sv;
 } THREAD_DATA, * LPTHREAD_DATA;
 
 typedef struct car_thread_data
 {
     DWORD id, timeT;
-    LPSYNCHRONIZATION_VARS sv;
+    LPSHARED_VARS sv;
 } CAR_THREAD_DATA, * LPCAR_THREAD_DATA;
 
 DWORD WINAPI CarLeftToRightThread(LPVOID data)
@@ -52,7 +52,7 @@ DWORD WINAPI CarLeftToRightThread(LPVOID data)
     EnterCriticalSection(&(td->sv->meL2R));
     td->sv->nL2R--;
     if (td->sv->nL2R == 0)
-        ReleaseSemaphore(td->sv->busy, 1, NULL);
+        SetEvent(td->sv->busy);
     LeaveCriticalSection(&(td->sv->meL2R));
 
     return 0;
@@ -78,7 +78,7 @@ DWORD WINAPI CarRightToLeftThread(LPVOID data)
     EnterCriticalSection(&(td->sv->meR2L));
     td->sv->nR2L--;
     if (td->sv->nR2L == 0)
-        ReleaseSemaphore(td->sv->busy, 1, NULL);
+        SetEvent(td->sv->busy);
     LeaveCriticalSection(&(td->sv->meR2L));
 
     return 0;
@@ -194,7 +194,7 @@ INT _tmain(INT argc, LPTSTR argv[])
 {
     DWORD i;
     HANDLE threadL2R, threadR2L;
-    SYNCHRONIZATION_VARS sv;
+    SHARED_VARS sv;
     THREAD_DATA tdL2R, tdR2L;
 
     // Check input parameters
@@ -212,7 +212,7 @@ INT _tmain(INT argc, LPTSTR argv[])
     tdR2L.carsNumber = _ttoi(argv[6]);
 
     // Initialize synchronization vars (no mutex since they are released when thread terminates)
-    sv.busy = CreateSemaphore(NULL, 1, 1, NULL);
+    sv.busy = CreateEvent(NULL, FALSE, TRUE, NULL);
     InitializeCriticalSection(&sv.meL2R);
     InitializeCriticalSection(&sv.meR2L);
 
