@@ -153,6 +153,7 @@ VOID Writer(LPFOLDER folder)
 {
     DWORD nRead, year, month, day;
     RECORD record;
+    LARGE_INTEGER pos;
     OVERLAPPED ov = { 0, 0, 0, 0, NULL };
 
     TCHAR searchPath[MAX_PATH + 3], filename[MAX_PATH + 256];
@@ -191,13 +192,15 @@ VOID Writer(LPFOLDER folder)
                 __leave;
             }
 
-            ov.Offset = 0;
+            pos.QuadPart = 0;
+            ov.Offset = pos.LowPart;
+            ov.OffsetHigh = pos.HighPart;
 
             // Read each line of the file
             while (ReadFile(inFile, &record, sizeof(RECORD), &nRead, NULL) && nRead == sizeof(RECORD))
             {
                 // Randomize connection time
-                _stprintf(record.length, _T("%02d:%02d:%02d"), rand() % 24, rand() % 60, rand() % 60);
+                _stprintf(record.length, _T("%02d:%02d:%02d"), rand() % 100, rand() % 60, rand() % 60);
 
                 // Randomize access time
                 year = 2000 + rand() % 20;
@@ -212,8 +215,10 @@ VOID Writer(LPFOLDER folder)
                     __leave;
                 }
 
-                // Setup the overlapped structure
-                ov.Offset += sizeof(RECORD);
+                // Setup the overlapped structure for the next iteration
+                pos.QuadPart += sizeof(RECORD);
+                ov.Offset = pos.LowPart;
+                ov.OffsetHigh = pos.HighPart;
             }
 
             // Close the file
