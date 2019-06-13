@@ -92,58 +92,61 @@ VOID Reader(LPFOLDER folder)
     searchHandle = FindFirstFile(searchPath, &fileData);
     if (searchHandle == INVALID_HANDLE_VALUE)
     {
-        _ftprintf(stderr, _T("Cannot open directory.\n"));
-        FindClose(searchHandle);
+        _ftprintf(stderr, _T("Thread %d - Cannot open directory %s.\n"), GetCurrentThreadId(), folder->path);
         return;
     }
 
-    // Loop through all files
-    do
+    __try
     {
-        // Skip . and ..
-        if (fileData.cFileName[0] == '.')
-            continue;
-
-        // Produce the file name
-        _stprintf(filename, _T("%s\\%s"), folder->path, fileData.cFileName);
-
-        // Open the file
-        inFile = CreateFile(filename, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (inFile == INVALID_HANDLE_VALUE)
+        // Loop through all files
+        do
         {
-            _ftprintf(stderr, _T("Cannot open file.\n"));
-            FindClose(searchHandle);
-            return;
-        }
+            // Skip . and ..
+            if (fileData.cFileName[0] == '.')
+                continue;
 
-        // Read each line of the file
-        while (ReadFile(inFile, &record, sizeof(RECORD), &nRead, NULL) && nRead == sizeof(RECORD))
-        {
-            // Update connection time
-            totTime += GetSeconds(record.length);
+            // Produce the file name
+            _stprintf(filename, _T("%s\\%s"), folder->path, fileData.cFileName);
+            
+            // Open the file
+            inFile = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (inFile == INVALID_HANDLE_VALUE)
+            {
+                _ftprintf(stderr, _T("Thread %d - Cannot open file %s.\n"), GetCurrentThreadId(), filename);
+                __leave;
+            }
 
-            // Update last access
-            if (_tcscmp(lastAccess, _T("")) == 0 || CompareDates(lastAccess, record.datetime) == DATE_PREV)
-                memcpy(lastAccess, record.datetime, _tcslen(record.datetime) * sizeof(TCHAR));
-        }
+            // Read each line of the file
+            while (ReadFile(inFile, &record, sizeof(RECORD), &nRead, NULL) && nRead == sizeof(RECORD))
+            {
+                // Update connection time
+                totTime += GetSeconds(record.length);
 
-        // Close the file
-        CloseHandle(inFile);
-    } while (FindNextFile(searchHandle, &fileData));
+                // Update last access
+                if (_tcscmp(lastAccess, _T("")) == 0 || CompareDates(lastAccess, record.datetime) == DATE_PREV)
+                    memcpy(lastAccess, record.datetime, _tcslen(record.datetime) * sizeof(TCHAR));
+            }
 
-    // Close the search handle
-    FindClose(searchHandle);
+            // Close the file
+            CloseHandle(inFile);
+        } while (FindNextFile(searchHandle, &fileData));
+    }
+    __finally
+    {
+        // Print results
+        _tprintf(_T("Thread %d - Total connection time: %d seconds\n"), GetCurrentThreadId(), totTime);
+        _tprintf(_T("Thread %d - Last access time: %s\n"), GetCurrentThreadId(), lastAccess);
 
-    // Print results
-    _tprintf(_T("Thread %d - Total connection time: %d seconds\n"), GetCurrentThreadId(), totTime);
-    _tprintf(_T("Thread %d - Last access time: %s\n"), GetCurrentThreadId(), lastAccess);
+        // Close the search handle
+        FindClose(searchHandle);
 
-    // Egress protocol
-    EnterCriticalSection(&folder->csReaders);
-    folder->nReaders--;
-    if (folder->nReaders == 0)
-        SetEvent(folder->mutex);
-    LeaveCriticalSection(&folder->csReaders);
+        // Egress protocol
+        EnterCriticalSection(&folder->csReaders);
+        folder->nReaders--;
+        if (folder->nReaders == 0)
+            SetEvent(folder->mutex);
+        LeaveCriticalSection(&folder->csReaders);
+    }
 }
 
 VOID Writer(LPFOLDER folder)
@@ -164,61 +167,67 @@ VOID Writer(LPFOLDER folder)
     searchHandle = FindFirstFile(searchPath, &fileData);
     if (searchHandle == INVALID_HANDLE_VALUE)
     {
-        _ftprintf(stderr, _T("Cannot open directory.\n"));
-        FindClose(searchHandle);
+        _ftprintf(stderr, _T("Thread %d - Cannot open directory %s.\n"), GetCurrentThreadId(), folder->path);
         return;
     }
 
-    // Loop through all files
-    do
+    __try
     {
-        // Skip . and ..
-        if (fileData.cFileName[0] == '.')
-            continue;
-
-        // Produce the file name
-        _stprintf(filename, _T("%s\\%s"), folder->path, fileData.cFileName);
-
-        // Open the file
-        inFile = CreateFile(filename, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (inFile == INVALID_HANDLE_VALUE)
+        // Loop through all files
+        do
         {
-            _ftprintf(stderr, _T("Cannot open file.\n"));
-            FindClose(searchHandle);
-            return;
-        }
+            // Skip . and ..
+            if (fileData.cFileName[0] == '.')
+                continue;
 
-        ov.Offset = 0;
+            // Produce the file name
+            _stprintf(filename, _T("%s\\%s"), folder->path, fileData.cFileName);
 
-        // Read each line of the file
-        while (ReadFile(inFile, &record, sizeof(RECORD), &nRead, NULL) && nRead == sizeof(RECORD))
-        {
-            // Randomize connection time
-            _stprintf(record.length, _T("%02d:%02d:%02d"), rand() % 24, rand() % 60, rand() % 60);
+            // Open the file
+            inFile = CreateFile(filename, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (inFile == INVALID_HANDLE_VALUE)
+            {
+                _ftprintf(stderr, _T("Thread %d - Cannot open file %s.\n"), GetCurrentThreadId(), filename);
+                __leave;
+            }
 
-            // Randomize access time
-            year = 2000 + rand() % 20;
-            month = 1 + rand() % 12;
-            day = 1 + rand() % daysPerMonth[month - 1];
-            _stprintf(record.datetime, _T("%04d/%02d/%02d:%02d:%02d:%02d"), year, month, day, rand() % 24, rand() % 60, rand() % 60);
+            ov.Offset = 0;
 
-            // Write the updated line
-            if (!WriteFile(inFile, &record, sizeof(RECORD), &nRead, &ov) || nRead != sizeof(RECORD))
-                break;
+            // Read each line of the file
+            while (ReadFile(inFile, &record, sizeof(RECORD), &nRead, NULL) && nRead == sizeof(RECORD))
+            {
+                // Randomize connection time
+                _stprintf(record.length, _T("%02d:%02d:%02d"), rand() % 24, rand() % 60, rand() % 60);
 
-            // Setup the overlapped structure
-            ov.Offset += sizeof(RECORD);
-        }
+                // Randomize access time
+                year = 2000 + rand() % 20;
+                month = 1 + rand() % 12;
+                day = 1 + rand() % daysPerMonth[month - 1];
+                _stprintf(record.datetime, _T("%04d/%02d/%02d:%02d:%02d:%02d"), year, month, day, rand() % 24, rand() % 60, rand() % 60);
 
-        // Close the file
-        CloseHandle(inFile);
-    } while (FindNextFile(searchHandle, &fileData));
+                // Write the updated line
+                if (!WriteFile(inFile, &record, sizeof(RECORD), &nRead, &ov) || nRead != sizeof(RECORD))
+                {
+                    _ftprintf(stderr, _T("Thread %d - Cannot write file %s.\n"), GetCurrentThreadId(), filename);
+                    __leave;
+                }
 
-    // Close the search handle
-    FindClose(searchHandle);
+                // Setup the overlapped structure
+                ov.Offset += sizeof(RECORD);
+            }
 
-    // Egress protocol
-    SetEvent(folder->mutex);
+            // Close the file
+            CloseHandle(inFile);
+        } while (FindNextFile(searchHandle, &fileData));
+    }
+    __finally
+    {
+        // Close the search handle
+        FindClose(searchHandle);
+
+        // Egress protocol
+        SetEvent(folder->mutex);
+    }
 }
 
 DWORD WINAPI ThreadFunction(LPVOID data)
@@ -233,16 +242,16 @@ DWORD WINAPI ThreadFunction(LPVOID data)
     while (1)
     {
         // Generate three random numbers
-        n1 = rand() % 11;
-        n2 = rand() % 101;
-        n3 = rand() % 101;
+        n1 = rand() % 100;
+        n2 = rand() % 100;
+        n3 = rand() % 100;
 
         // Sleep n1 seconds
         _tprintf(_T("Thread %d - Sleeping for %d seconds.\n"), GetCurrentThreadId(), n1);
         Sleep(n1 * 1000);
 
         // Select the folder on which to operate
-        folder = &sv->folders[n3 % sv->numberOfFolders];
+        folder = &sv->folders[n3 * sv->numberOfFolders / 100];
 
         // Decide the behavior
         if (n2 < 50)
