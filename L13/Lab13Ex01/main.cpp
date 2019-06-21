@@ -40,7 +40,7 @@ typedef struct train
 typedef struct station
 {
     DWORD id = 0, commuters[2] = { 0, 0 }, countHigh[2] = { 0, 0 }, countLow[2] = { 0, 0 };
-    HANDLE eventNewCommuters = NULL, stationThread = NULL, binaries[2] = { NULL, NULL };
+    HANDLE eventNewCommuters = NULL, binaries[2] = { NULL, NULL }, stationThread = NULL;
     LPTRAIN trains = NULL;
     CRITICAL_SECTION csCommuters;
 } STATION, * LPSTATION;
@@ -104,6 +104,18 @@ INT _tmain(INT argc, LPCTSTR argv[])
     sv.commutersThread = CreateThread(NULL, 0, CommutersThread, &sv, 0, NULL);
     WaitForSingleObject(sv.commutersThread, INFINITE);
 
+    // Destroy the created structures
+    for (i = 0; i < NUM_STAT; i++)
+    {
+        CloseHandle(sv.stations[i].stationThread);
+        CloseHandle(sv.stations[i].eventNewCommuters);
+        CloseHandle(sv.stations[i].binaries[0]);
+        CloseHandle(sv.stations[i].binaries[1]);
+        DeleteCriticalSection(&sv.stations[i].csCommuters);
+    }
+
+    CloseHandle(sv.semNextCommuters);
+
     return 0;
 }
 
@@ -111,6 +123,8 @@ DWORD WINAPI CommutersThread(LPVOID data)
 {
     DWORD i, j, commutersIn;
     LPSHARED_VARS sv = (LPSHARED_VARS)data;
+
+    srand(GetCurrentThreadId());
 
     while (1)
     {
@@ -154,6 +168,8 @@ DWORD WINAPI StationThread(LPVOID data)
     LPTRAIN x, train;
     LPTHREAD_DATA td = (LPTHREAD_DATA)data, tdTrain;
 
+    srand(GetCurrentThreadId());
+
     // Retrieve current station
     station = td->sv->stations + td->stationId;
 
@@ -163,7 +179,7 @@ DWORD WINAPI StationThread(LPVOID data)
         WaitForSingleObject(station->eventNewCommuters, INFINITE);
 
         // Check both directions
-        for (dir = 0; dir < 2; dir++)
+        for (dir = CLOCKWISE; dir <= COUNTERCLOCKWISE; dir++)
         {
             // Get the critical section
             EnterCriticalSection(&station->csCommuters);
@@ -190,16 +206,24 @@ DWORD WINAPI StationThread(LPVOID data)
             {
                 // Create a train structure
                 train = (LPTRAIN)malloc(sizeof(TRAIN));
+
+                // Set fields
                 train->id = InterlockedIncrement(&td->sv->trainCount) - 1;
-
-                train->passengers = min(MAX_TRAIN, station->commuters[dir]);
-                station->commuters[dir] -= train->passengers;
-
                 train->currentStation = td->stationId;
                 train->direction = dir;
-                train->line = LINEA;
                 train->suppress = FALSE;
                 train->next = NULL;
+
+                // Set train line
+                if (station->id == S1) train->line = LINEA;
+                else if (station->id == S2) train->line = rand() % 2;
+                else if (station->id == S3) train->line = LINEB;
+
+                // Update passengers
+                train->passengers = min(MAX_TRAIN, station->commuters[dir]);
+                station->commuters[dir] -= train->passengers;
+                if (station->commuters[dir] <= 75)
+                    station->countHigh[dir] = 0;
 
                 // Create thread data structure
                 tdTrain = (LPTHREAD_DATA)malloc(sizeof(THREAD_DATA));
@@ -232,6 +256,13 @@ DWORD WINAPI StationThread(LPVOID data)
                 // Set the suppress flag
                 train->suppress = TRUE;
 
+                // Wait for thread completion
+                WaitForSingleObject(train->trainThread, INFINITE);
+                CloseHandle(train->trainThread);
+
+                // Free the train
+                free(train);
+
                 _tprintf(_T("T+%03lld: stationThread=%d direction=%d train-suppress=%d\n"), time(NULL) - td->sv->startTime, station->id, dir, train->id);
             }
         }
@@ -249,6 +280,8 @@ DWORD WINAPI TrainThread(LPVOID data)
     LPTHREAD_DATA td = (LPTHREAD_DATA)data;
     LPSTATION station;
     LPTRAIN train;
+    
+    srand(GetCurrentThreadId());
 
     // Retrieve current train
     station = &(td->sv->stations[td->stationId]);
@@ -316,7 +349,6 @@ DWORD WINAPI TrainThread(LPVOID data)
     }
 
     // Free dynamic memory
-    free(train);
     free(data);
     return 0;
 }
